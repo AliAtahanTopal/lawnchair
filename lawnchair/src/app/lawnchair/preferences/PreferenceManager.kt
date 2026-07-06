@@ -18,6 +18,7 @@ package app.lawnchair.preferences
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.ui.platform.LocalContext
 import app.lawnchair.LawnchairLauncher
 import app.lawnchair.font.FontCache
@@ -40,6 +41,7 @@ import com.android.launcher3.util.SafeCloseable
 import com.android.quickstep.RecentsModel
 import javax.inject.Inject
 
+@Stable
 @LauncherAppSingleton
 class PreferenceManager @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -104,7 +106,6 @@ class PreferenceManager @Inject constructor(
     val workspaceRows = IntPref("pref_workspaceRows", calculatedGridSpec.workspaceRows)
     val workspaceIncreaseMaxGridSize = BoolPref("pref_workspace_increase_max_grid_size", false)
     val folderRows = IdpIntPref("pref_folderRows", { numFolderRows[INDEX_DEFAULT] }, reloadGrid)
-
     val drawerOpacity = FloatPref("pref_drawerOpacity", .5f, recreate)
     val coloredBackgroundLightness = FloatPref("pref_coloredBackgroundLightness", 1F)
     val feedProvider = StringPref("pref_feedProvider", "")

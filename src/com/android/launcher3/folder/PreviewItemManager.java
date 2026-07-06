@@ -58,6 +58,9 @@ import com.android.launcher3.model.data.ItemInfoWithIcon;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
 import com.android.launcher3.views.ActivityContext;
 
+import com.patrykmichalik.opto.core.PreferenceExtensionsKt;
+import app.lawnchair.preferences2.PreferenceManager2;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
@@ -169,10 +172,12 @@ public class PreviewItemManager {
 
             mIcon.mBackground.setup(mIcon.getContext(), mIcon.mActivity, mIcon, mTotalWidth,
                     mIcon.getPaddingTop());
+            float factor = PreferenceExtensionsKt.firstBlocking(PreferenceManager2.INSTANCE.get(mContext).getFolderPreviewIconSizeFactor());
             mIcon.mPreviewLayoutRule.init(
                     mIcon.mBackground.previewSize, mIntrinsicIconSize,
                     Utilities.isRtl(mIcon.getResources()),
-                    mIcon.mActivity.getDeviceProfile().numFolderColumns
+                    mIcon.mActivity.getDeviceProfile().numFolderColumns,
+                    factor
             );
             updatePreviewItems(false);
         }
@@ -347,24 +352,24 @@ public class PreviewItemManager {
         }
     }
 
-    void updatePreviewItems(boolean animate) {
+    public void updatePreviewItems(boolean animate) {
         int numOfPrevItemsAux = mFirstPageParams.size();
         buildParamsForPage(0, mFirstPageParams, animate);
         mNumOfPrevItems = numOfPrevItemsAux;
     }
 
-    void updatePreviewItems(Predicate<ItemInfo> itemCheck) {
+    public void updatePreviewItems(Predicate<ItemInfo> itemCheck) {
         boolean modified = false;
         for (PreviewItemDrawingParams param : mFirstPageParams) {
-            if (itemCheck.test(param.item)
-                    || (param.item instanceof AppPairInfo api && api.anyMatch(itemCheck))) {
+            if (param.item != null && (itemCheck.test(param.item)
+                    || (param.item instanceof AppPairInfo api && api.anyMatch(itemCheck)))) {
                 setDrawable(param, param.item);
                 modified = true;
             }
         }
         for (PreviewItemDrawingParams param : mCurrentPageParams) {
-            if (itemCheck.test(param.item)
-                    || (param.item instanceof AppPairInfo api && api.anyMatch(itemCheck))) {
+            if (param.item != null && (itemCheck.test(param.item)
+                    || (param.item instanceof AppPairInfo api && api.anyMatch(itemCheck)))) {
                 setDrawable(param, param.item);
                 modified = true;
             }
@@ -467,6 +472,11 @@ public class PreviewItemManager {
 
     @VisibleForTesting
     public void setDrawable(PreviewItemDrawingParams p, ItemInfo item) {
+        if (item == null) {
+            p.drawable = null;
+            p.item = null;
+            return;
+        }
         // Lawnchair: Find the correct folder size depending on which parent owned them
         int iconSize = getChildIconSize();
         if (item instanceof WorkspaceItemInfo wii) {

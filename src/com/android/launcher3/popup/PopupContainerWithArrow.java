@@ -71,6 +71,7 @@ import com.android.launcher3.util.PackageUserKey;
 import com.android.launcher3.util.ShortcutUtil;
 import com.android.launcher3.views.ActivityContext;
 import com.android.launcher3.views.BaseDragLayer;
+import com.android.launcher3.views.FloatingIconViewCompanion;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -96,7 +97,7 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
 
     private final float mShortcutHeight;
 
-    private BubbleTextView mOriginalIcon;
+    private View mOriginalIcon;
     private int mContainerWidth;
 
     private ViewGroup mWidgetContainer;
@@ -195,7 +196,7 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
      * @param icon the app icon to show the popup for
      * @return the container if shown or null.
      */
-    public static PopupContainerWithArrow<Launcher> showForIcon(BubbleTextView icon) {
+    public static PopupContainerWithArrow<Launcher> showForIcon(View icon) {
         Launcher launcher = Launcher.getLauncher(icon.getContext());
         if (getOpen(launcher) != null) {
             // There is already an items container open, so don't open this one.
@@ -214,30 +215,37 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
                 .map(s -> s.getShortcut(launcher, item, icon))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+        if (deepShortcutCount == 0 && systemShortcuts.isEmpty()) {
+            return null;
+        }
         container = (PopupContainerWithArrow) launcher.getLayoutInflater().inflate(
                 R.layout.popup_container, launcher.getDragLayer(), false);
         container.configureForLauncher(launcher, item);
-        
+
+        if (icon instanceof FloatingIconViewCompanion fivc) {
+            fivc.setForceHideDot(true);
+        }
+
         /* LC-Note: Fix for missing flags and account for NCDFE */
         boolean shouldHideSystemShortcuts;
         if (ATLEAST_BAKLAVA) {
             boolean enableMovingContentIntoPrivateSpace = false;
             try {
-                /* LC-Note: Some devices (Android 16 QPR) doesn't have or expose this flag to user. 
-                 * Let's assume no, because (the flags) enableMovingContentIntoPrivateSpace seems 
+                /* LC-Note: Some devices (Android 16 QPR) doesn't have or expose this flag to user.
+                 * Let's assume no, because (the flags) enableMovingContentIntoPrivateSpace seems
                  * to be False for R8 by default.
                  * */
                 enableMovingContentIntoPrivateSpace = enableMovingContentIntoPrivateSpace();
             } catch (NoClassDefFoundError e) {
                 /* LC-Ignored: we already set it false by default. */
             }
-            
+
             shouldHideSystemShortcuts = enableMovingContentIntoPrivateSpace
-                && Objects.equals(item.getTargetPackage(), PRIVATE_SPACE_PACKAGE);
+                    && Objects.equals(item.getTargetPackage(), PRIVATE_SPACE_PACKAGE);
         } else {
             shouldHideSystemShortcuts = false;
         }
-        
+
         container.populateAndShowRows(icon, deepShortcutCount,
                 shouldHideSystemShortcuts ? Collections.emptyList() : systemShortcuts);
         launcher.refreshAndBindWidgetsForPackageUser(PackageUserKey.fromItemInfo(item));
@@ -264,7 +272,7 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
      * @param deepShortcutCount Number of DeepShortcutView instances to add to container
      * @param systemShortcuts List of SystemShortcuts to add to container
      */
-    public void populateAndShowRows(final BubbleTextView originalIcon,
+    public void populateAndShowRows(final View originalIcon,
             int deepShortcutCount, List<SystemShortcut> systemShortcuts) {
         populateAndShowRows(originalIcon, (ItemInfo) originalIcon.getTag(), deepShortcutCount,
                 systemShortcuts);
@@ -278,7 +286,7 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
      * @param deepShortcutCount Number of DeepShortcutView instances to add to container
      * @param systemShortcuts List of SystemShortcuts to add to container
      */
-    public void populateAndShowRows(final BubbleTextView originalIcon, ItemInfo itemInfo,
+    public void populateAndShowRows(final View originalIcon, ItemInfo itemInfo,
             int deepShortcutCount, List<SystemShortcut> systemShortcuts) {
 
         mOriginalIcon = originalIcon;
@@ -302,7 +310,9 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
         if (Utilities.ATLEAST_P) {
             setAccessibilityPaneTitle(getTitleForAccessibility());
         }
-        mOriginalIcon.setForceHideDot(true);
+        if (mOriginalIcon instanceof FloatingIconViewCompanion fivc) {
+            fivc.setForceHideDot(true);
+        }
         // All views are added. Animate layout from now on.
         setLayoutTransition(new LayoutTransition());
         // Load the shortcuts on a background thread and update the container as it animates.
@@ -503,7 +513,7 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
         updateHiddenShortcuts();
     }
 
-    protected BubbleTextView getOriginalIcon() {
+    protected View getOriginalIcon() {
         return mOriginalIcon;
     }
 
@@ -529,9 +539,13 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
         outPos.top += mOriginalIcon.getPaddingTop();
         outPos.left += mOriginalIcon.getPaddingLeft();
         outPos.right -= mOriginalIcon.getPaddingRight();
-        outPos.bottom = outPos.top + (mOriginalIcon.getIcon() != null
-                ? mOriginalIcon.getIcon().getBounds().height()
-                : mOriginalIcon.getHeight());
+        int iconHeight = mOriginalIcon.getHeight();
+        if (mOriginalIcon instanceof BubbleTextView btv) {
+            iconHeight = btv.getIcon() != null ? btv.getIcon().getBounds().height() : btv.getHeight();
+        } else if (mOriginalIcon instanceof com.android.launcher3.folder.FolderIcon fi) {
+            iconHeight = mActivityContext.getDeviceProfile().iconSizePx;
+        }
+        outPos.bottom = outPos.top + iconHeight;
     }
 
     protected void updateHiddenShortcuts() {
@@ -600,7 +614,9 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
                 }
                 if (mIsAboveIcon) {
                     // Hide only the icon, keep the text visible.
-                    mOriginalIcon.setIconVisible(false);
+                    if (mOriginalIcon instanceof FloatingIconViewCompanion fivc) {
+                        fivc.setIconVisible(false);
+                    }
                     mOriginalIcon.setVisibility(VISIBLE);
                 } else {
                     // Hide both the icon and text.
@@ -613,7 +629,9 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
                 if (!updateIconUi) {
                     return;
                 }
-                mOriginalIcon.setIconVisible(true);
+                if (mOriginalIcon instanceof FloatingIconViewCompanion fivc) {
+                    fivc.setIconVisible(true);
+                }
                 if (dragStarted) {
                     // Make sure we keep the original icon hidden while it is being dragged.
                     mOriginalIcon.setVisibility(INVISIBLE);
@@ -624,7 +642,11 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
                     if (!mIsAboveIcon) {
                         // Show the icon but keep the text hidden.
                         mOriginalIcon.setVisibility(VISIBLE);
-                        mOriginalIcon.setTextVisibility(false);
+                        if (mOriginalIcon instanceof BubbleTextView btv) {
+                            btv.setTextVisibility(false);
+                        } else if (mOriginalIcon instanceof com.android.launcher3.folder.FolderIcon fi) {
+                            fi.setTextVisible(false);
+                        }
                     }
                 }
             }
@@ -660,8 +682,12 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
     @Override
     protected void onCreateCloseAnimation(AnimatorSet anim) {
         // Animate original icon's text back in.
-        anim.play(mOriginalIcon.createTextAlphaAnimator(true /* fadeIn */));
-        mOriginalIcon.setForceHideDot(false);
+        if (mOriginalIcon instanceof BubbleTextView btv) {
+            anim.play(btv.createTextAlphaAnimator(true /* fadeIn */));
+        }
+        if (mOriginalIcon instanceof FloatingIconViewCompanion fivc) {
+            fivc.setForceHideDot(false);
+        }
     }
 
     @Override
@@ -672,8 +698,14 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
         }
         PopupContainerWithArrow openPopup = getOpen(mActivityContext);
         if (openPopup == null || openPopup.mOriginalIcon != mOriginalIcon) {
-            mOriginalIcon.setTextVisibility(mOriginalIcon.shouldTextBeVisible());
-            mOriginalIcon.setForceHideDot(false);
+            if (mOriginalIcon instanceof BubbleTextView btv) {
+                btv.setTextVisibility(btv.shouldTextBeVisible());
+            } else if (mOriginalIcon instanceof com.android.launcher3.folder.FolderIcon fi) {
+                fi.setTextVisible(true);
+            }
+            if (mOriginalIcon instanceof FloatingIconViewCompanion fivc) {
+                fivc.setForceHideDot(false);
+            }
         }
     }
 

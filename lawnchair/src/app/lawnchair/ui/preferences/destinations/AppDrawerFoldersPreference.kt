@@ -92,7 +92,9 @@ fun AppDrawerFoldersPreference(
             val newInfo = folderInfo.apply {
                 title = label
             }
-            viewModel.createFolder(newInfo)
+            viewModel.createFolder(newInfo) { id ->
+                navController.navigate(AppDrawerAppListToFolder(id))
+            }
         },
         onEditFolderItems = {
             viewModel.setFolderInfo(it, false)

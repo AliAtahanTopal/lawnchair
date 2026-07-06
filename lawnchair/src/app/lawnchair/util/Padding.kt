@@ -30,25 +30,43 @@ fun Modifier.navigationBarsOrDisplayCutoutPadding(): Modifier = composed {
 fun max(a: PaddingValues, b: PaddingValues) = remember(a, b) {
     object : PaddingValues {
         override fun calculateLeftPadding(layoutDirection: LayoutDirection): Dp {
-            return max(
-                a.calculateLeftPadding(layoutDirection),
-                b.calculateLeftPadding(layoutDirection),
-            )
+            val aVal = a.calculateLeftPadding(layoutDirection)
+            val bVal = b.calculateLeftPadding(layoutDirection)
+            return when {
+                !aVal.value.isFinite() -> bVal.let { if (it.value.isFinite()) it else 0.dp }
+                !bVal.value.isFinite() -> aVal
+                else -> max(aVal, bVal)
+            }
         }
 
         override fun calculateTopPadding(): Dp {
-            return max(a.calculateTopPadding(), b.calculateTopPadding())
+            val aVal = a.calculateTopPadding()
+            val bVal = b.calculateTopPadding()
+            return when {
+                !aVal.value.isFinite() -> bVal.let { if (it.value.isFinite()) it else 0.dp }
+                !bVal.value.isFinite() -> aVal
+                else -> max(aVal, bVal)
+            }
         }
 
         override fun calculateRightPadding(layoutDirection: LayoutDirection): Dp {
-            return max(
-                a.calculateRightPadding(layoutDirection),
-                b.calculateRightPadding(layoutDirection),
-            )
+            val aVal = a.calculateRightPadding(layoutDirection)
+            val bVal = b.calculateRightPadding(layoutDirection)
+            return when {
+                !aVal.value.isFinite() -> bVal.let { if (it.value.isFinite()) it else 0.dp }
+                !bVal.value.isFinite() -> aVal
+                else -> max(aVal, bVal)
+            }
         }
 
         override fun calculateBottomPadding(): Dp {
-            return max(a.calculateBottomPadding(), b.calculateBottomPadding())
+            val aVal = a.calculateBottomPadding()
+            val bVal = b.calculateBottomPadding()
+            return when {
+                !aVal.value.isFinite() -> bVal.let { if (it.value.isFinite()) it else 0.dp }
+                !bVal.value.isFinite() -> aVal
+                else -> max(aVal, bVal)
+            }
         }
     }
 }
@@ -60,25 +78,29 @@ operator fun PaddingValues.minus(b: PaddingValues): PaddingValues {
         object : PaddingValues {
             override fun calculateLeftPadding(layoutDirection: LayoutDirection): Dp {
                 val aLeft = a.calculateLeftPadding(layoutDirection)
-                val bLeft = b.calculateRightPadding(layoutDirection)
+                val bLeft = b.calculateLeftPadding(layoutDirection)
+                if (!aLeft.value.isFinite() || !bLeft.value.isFinite()) return 0.dp
                 return (aLeft - bLeft).coerceAtLeast(0.dp)
             }
 
             override fun calculateTopPadding(): Dp {
                 val aTop = a.calculateTopPadding()
                 val bTop = b.calculateTopPadding()
+                if (!aTop.value.isFinite() || !bTop.value.isFinite()) return 0.dp
                 return (aTop - bTop).coerceAtLeast(0.dp)
             }
 
             override fun calculateRightPadding(layoutDirection: LayoutDirection): Dp {
                 val aRight = a.calculateRightPadding(layoutDirection)
                 val bRight = b.calculateRightPadding(layoutDirection)
+                if (!aRight.value.isFinite() || !bRight.value.isFinite()) return 0.dp
                 return (aRight - bRight).coerceAtLeast(0.dp)
             }
 
             override fun calculateBottomPadding(): Dp {
                 val aBottom = a.calculateBottomPadding()
                 val bBottom = b.calculateBottomPadding()
+                if (!aBottom.value.isFinite() || !bBottom.value.isFinite()) return 0.dp
                 return (aBottom - bBottom).coerceAtLeast(0.dp)
             }
         }

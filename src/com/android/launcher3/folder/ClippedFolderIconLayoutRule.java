@@ -27,13 +27,22 @@ public class ClippedFolderIconLayoutRule {
     private float mIconSize;
     private boolean mIsRtl;
     private float mBaselineIconScale;
-    private int mNumFolderColumns;
+    private int mFolderColumns = 1;
+    private float mPreviewIconSizeFactor = 1f;
 
     /**
      * initialize the layout rule
      */
     public void init(int availableSpace, float intrinsicIconSize, boolean rtl,
             int numFolderColumns) {
+        init(availableSpace, intrinsicIconSize, rtl, numFolderColumns, 1f);
+    }
+
+    /**
+     * initialize the layout rule
+     */
+    public void init(int availableSpace, float intrinsicIconSize, boolean rtl,
+            int numFolderColumns, float previewIconSizeFactor) {
         mAvailableSpace = availableSpace;
         mRadius = (
                 Flags.enableLauncherIconShapes()
@@ -41,8 +50,9 @@ public class ClippedFolderIconLayoutRule {
                         : ITEM_RADIUS_SCALE_FACTOR) * availableSpace / 2f;
         mIconSize = intrinsicIconSize;
         mIsRtl = rtl;
-        mBaselineIconScale = availableSpace / intrinsicIconSize;
-        mNumFolderColumns = numFolderColumns;
+        mBaselineIconScale = (intrinsicIconSize > 0) ? availableSpace / intrinsicIconSize : 1f;
+        mFolderColumns = Math.max(1, numFolderColumns);
+        mPreviewIconSizeFactor = previewIconSizeFactor;
     }
 
     /**
@@ -101,7 +111,10 @@ public class ClippedFolderIconLayoutRule {
         if (numItemsInPage <= MAX_NUM_ITEMS_IN_PREVIEW) {
             getPosition(index, numItemsInPage, mTmpPoint);
         } else {
-            getGridPosition(index / mNumFolderColumns, index % mNumFolderColumns, mTmpPoint);
+            int columns = mFolderColumns > 0 ? mFolderColumns : 1;
+            int row = index / columns;
+            int col = index % columns;
+            getGridPosition(row, col, mTmpPoint);
         }
 
         transX = mTmpPoint[0];
@@ -184,8 +197,12 @@ public class ClippedFolderIconLayoutRule {
             return mRadius * (1 + radiusDilation);
         } else {
             // Increase radius from 0 up to MAX_RADIUS_DILATION as the number of items increases.
+            int range = MAX_NUM_ITEMS_IN_PREVIEW - MIN_NUM_ITEMS_IN_PREVIEW;
+            if (range <= 0) {
+                range = 1;
+            }
             return mRadius * (1 + radiusDilation * (numItems - MIN_NUM_ITEMS_IN_PREVIEW)
-                    / (MAX_NUM_ITEMS_IN_PREVIEW - MIN_NUM_ITEMS_IN_PREVIEW));
+                    / range);
         }
     }
 
@@ -204,7 +221,7 @@ public class ClippedFolderIconLayoutRule {
         } else {
             scale = MIN_SCALE;
         }
-        return scale * mBaselineIconScale;
+        return scale * mBaselineIconScale * mPreviewIconSizeFactor;
     }
 
     private float radiusDilationForItems(int numItems) {

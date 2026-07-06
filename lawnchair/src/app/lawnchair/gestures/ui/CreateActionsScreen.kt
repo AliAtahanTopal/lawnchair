@@ -32,7 +32,11 @@ fun CreateActionsScreen(
 
     fun onClick(option: GestureHandlerOption) {
         scope.launch {
-            val config = option.buildConfigFrom(context) ?: return@launch
+            val config = option.buildConfigFrom(context)
+            if (config == null) {
+                Log.e("CreateActionsScreen", "Failed to build config from option: $option")
+                return@launch
+            }
             onSelect(config)
         }
     }

@@ -17,6 +17,7 @@
 package app.lawnchair.gestures
 
 import androidx.lifecycle.lifecycleScope
+import android.util.Log
 import app.lawnchair.LawnchairApp
 import app.lawnchair.LawnchairLauncher
 import app.lawnchair.gestures.config.GestureHandlerConfig
@@ -76,20 +77,28 @@ class GestureController(private val launcher: LawnchairLauncher) {
 
     fun handle(handler: GestureHandlerConfig) {
         launcher.lifecycleScope.launch {
-            val handler = handler.createHandler(launcher)
-            handler.onTrigger(launcher)
+            try {
+                val handler = handler.createHandler(launcher)
+                handler.onTrigger(launcher)
+            } catch (e: Exception) {
+                Log.e("GestureController", "Error handling gesture: $handler", e)
+            }
         }
     }
 
     private fun triggerHandler(handlerFlow: Flow<GestureHandler>, withHaptic: Boolean = true) {
         launcher.lifecycleScope.launch {
-            val handler = handlerFlow.first()
-            if (handler is NoOpGestureHandler) {
-                return@launch
-            }
-            handler.onTrigger(launcher)
-            if (withHaptic) {
-                VibratorWrapper.INSTANCE.get(launcher).vibrate(VibratorWrapper.OVERVIEW_HAPTIC)
+            try {
+                val handler = handlerFlow.first()
+                if (handler is NoOpGestureHandler) {
+                    return@launch
+                }
+                handler.onTrigger(launcher)
+                if (withHaptic) {
+                    VibratorWrapper.INSTANCE.get(launcher).vibrate(VibratorWrapper.OVERVIEW_HAPTIC)
+                }
+            } catch (e: Exception) {
+                Log.e("GestureController", "Error triggering handler flow", e)
             }
         }
     }

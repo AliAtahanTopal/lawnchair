@@ -24,6 +24,7 @@ import android.content.pm.LauncherApps;
 import android.content.pm.LauncherApps.ShortcutQuery;
 import android.content.pm.ShortcutInfo;
 import android.os.UserHandle;
+import android.os.UserManager;
 
 import androidx.annotation.Nullable;
 
@@ -96,6 +97,12 @@ public class ShortcutRequest {
         if (!WIDGETS_ENABLED || mFailed) {
             return QueryResult.DEFAULT;
         }
+
+        UserManager userManager = mContext.getSystemService(UserManager.class);
+        if (userManager == null || mUserHandle == null || !userManager.isUserUnlocked(mUserHandle)) {
+            return QueryResult.DEFAULT;
+        }
+
         mQuery.setQueryFlags(flags);
 
         try {

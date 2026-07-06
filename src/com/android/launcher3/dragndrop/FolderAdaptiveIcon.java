@@ -39,6 +39,7 @@ import androidx.annotation.UiThread;
 
 import com.android.launcher3.folder.FolderIcon;
 import com.android.launcher3.icons.BitmapRenderer;
+import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.util.Preconditions;
 import com.android.launcher3.views.ActivityContext;
 
@@ -78,6 +79,10 @@ public class FolderAdaptiveIcon extends AdaptiveIconDrawable {
             ActivityContext activity, int folderId, Point size) {
         Preconditions.assertNonUiThread();
 
+        if (folderId == ItemInfo.NO_ID) {
+            return null;
+        }
+
         // assume square
         if (size.x != size.y) {
             return null;
@@ -107,13 +112,17 @@ public class FolderAdaptiveIcon extends AdaptiveIconDrawable {
         // Initialize the actual draw commands on the UI thread to avoid race conditions with
         // FolderIcon draw pass
         try {
-            MAIN_EXECUTOR.submit(() -> {
+            boolean folderFound = MAIN_EXECUTOR.submit(() -> {
                 FolderIcon icon = activity.findFolderIcon(folderId);
                 if (icon == null) {
-                    throw new IllegalArgumentException("Folder not found with id: " + folderId);
+                    return false;
                 }
                 initLayersOnUiThread(icon, requestedSize, bgCanvas, fgCanvas, badgeCanvas);
+                return true;
             }).get();
+            if (!folderFound) {
+                return null;
+            }
         } catch (Exception e) {
             Log.e(TAG, "Unable to create folder icon", e);
             return null;

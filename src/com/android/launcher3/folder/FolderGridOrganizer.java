@@ -152,14 +152,10 @@ public class FolderGridOrganizer {
      * Returns the position of the item in the grid
      */
     public Point getPosForRank(int rank) {
-        int pagePos = rank % mMaxItemsPerPage;
-        if (mCountX == 0) {
-            mPoint.x = 0;
-            mPoint.y = 0;
-        } else {
-            mPoint.x = pagePos % mCountX;
-            mPoint.y = pagePos / mCountX;
-        }
+        int pagePos = mMaxItemsPerPage > 0 ? rank % mMaxItemsPerPage : 0;
+        int columns = mCountX > 0 ? mCountX : 1;
+        mPoint.x = pagePos % columns;
+        mPoint.y = pagePos / columns;
         return mPoint;
     }
 
@@ -208,8 +204,9 @@ public class FolderGridOrganizer {
         // First page items are laid out such that the first 4 items are always in the upper
         // left quadrant. For all other pages, we need to check the row and col.
         if (page > 0 || mDisplayingUpperLeftQuadrant) {
-            int col = rank % mCountX;
-            int row = rank / mCountX;
+            int columns = mCountX > 0 ? mCountX : 1;
+            int col = rank % columns;
+            int row = rank / columns;
             return col < PREVIEW_MAX_COLUMNS && row < PREVIEW_MAX_ROWS;
         }
         // If we have less than 4 items do this

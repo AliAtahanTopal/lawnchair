@@ -1852,30 +1852,59 @@ constructor(
 
     fun getSizeAdjustment(fullscreenEnabled: Boolean) = if (fullscreenEnabled) nonGridScale else 1f
 
+    override fun setScaleX(scaleX: Float) {
+        if (scaleX.isNaN() || scaleX.isInfinite()) return
+        super.setScaleX(scaleX)
+    }
+
+    override fun setScaleY(scaleY: Float) {
+        if (scaleY.isNaN() || scaleY.isInfinite()) return
+        super.setScaleY(scaleY)
+    }
+
+    override fun setTranslationX(translationX: Float) {
+        if (translationX.isNaN() || translationX.isInfinite()) return
+        super.setTranslationX(translationX)
+    }
+
+    override fun setTranslationY(translationY: Float) {
+        if (translationY.isNaN() || translationY.isInfinite()) return
+        super.setTranslationY(translationY)
+    }
+
     private fun applyScale() {
         val scale = persistentScale * dismissScale * Utilities.mapRange(modalness, 1f, modalScale)
+        if (scale.isNaN() || scale.isInfinite()) {
+            return
+        }
         scaleX = scale
         scaleY = scale
         updateFullscreenParams()
     }
 
     private fun applyTranslationX() {
-        translationX =
-            dismissTranslationX +
+        val tx = dismissTranslationX +
                 taskOffsetTranslationX +
                 taskResistanceTranslationX +
                 splitSelectTranslationX +
                 gridEndTranslationX +
                 persistentTranslationX
+        if (tx.isNaN() || tx.isInfinite()) {
+            return
+        }
+        translationX = tx
     }
 
     private fun applyTranslationY() {
-        translationY =
-            dismissTranslationY +
+        val ty = dismissTranslationY +
                 taskOffsetTranslationY +
                 taskResistanceTranslationY +
                 splitSelectTranslationY +
                 persistentTranslationY
+        if (ty.isNaN() || ty.isInfinite()) {
+            return
+        }
+        translationY = ty
     }
 
     private fun onGridProgressChanged() {

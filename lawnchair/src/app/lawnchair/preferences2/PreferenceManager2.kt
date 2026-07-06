@@ -480,6 +480,12 @@ class PreferenceManager2 @Inject constructor(
         onSet = { reloadHelper.reloadGrid() },
     )
 
+    val folderPreviewIconSizeFactor = preference(
+        key = floatPreferencesKey(name = "folder_preview_icon_size_factor"),
+        defaultValue = 1f,
+        onSet = { reloadHelper.reloadGrid() },
+    )
+
     val showIconLabelsOnHomeScreen = preference(
         key = booleanPreferencesKey(name = "show_icon_labels_on_home_screen"),
         defaultValue = context.resources.getBoolean(R.bool.config_default_show_icon_labels_on_home_screen),

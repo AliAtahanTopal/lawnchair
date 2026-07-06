@@ -19,6 +19,7 @@ package app.lawnchair.preferences
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +36,7 @@ import com.patrykmichalik.opto.domain.Preference
 import kotlin.reflect.KProperty
 import kotlinx.coroutines.launch
 
+@Stable
 interface PreferenceAdapter<T> {
     val state: State<T>
     fun onChange(newValue: T)

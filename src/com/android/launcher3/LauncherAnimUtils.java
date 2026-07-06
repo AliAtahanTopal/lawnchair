@@ -67,6 +67,9 @@ public class LauncherAnimUtils {
 
                 @Override
                 public void setValue(View view, float scale) {
+                    if (Float.isNaN(scale) || Float.isInfinite(scale)) {
+                        return;
+                    }
                     view.setScaleX(scale);
                     view.setScaleY(scale);
                 }

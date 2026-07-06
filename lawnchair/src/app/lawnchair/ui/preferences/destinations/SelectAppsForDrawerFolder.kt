@@ -63,19 +63,20 @@ fun SelectAppsForDrawerFolder(
     val activeIds = remember(folderInfo) {
         folderInfo?.getContents()?.map { ComponentKey(it.targetComponent, it.user).toString() } ?: emptyList()
     }
+    val activeIdsSet = remember(activeIds) { activeIds.toSet() }
 
-    val (positionalItems, activeCount) = remember(apps, activeIds, filterNonUniqueItems, allFolderPackages) {
-        val filtered = apps.filter { app ->
-            if (filterNonUniqueItems) {
+    val (positionalItems, activeCount) = remember(apps, activeIdsSet, filterNonUniqueItems, allFolderPackages) {
+        val filtered = if (filterNonUniqueItems) {
+            apps.filter { app ->
                 !allFolderPackages.contains(app.key.componentName.packageName) ||
-                    activeIds.contains(app.key.toString())
-            } else {
-                true
+                    activeIdsSet.contains(app.key.toString())
             }
+        } else {
+            apps
         }
         PositionalMapper.prepareCategorizedItems(
             allItems = filtered,
-            enabledIds = activeIds,
+            enabledIds = activeIdsSet.toList(),
             idSelector = { it.key.toString() },
         )
     }
@@ -188,12 +189,12 @@ private fun updateViewModel(
     folderId: Int,
     title: String,
 ) {
-    val activePackageNames = PositionalMapper.getEnabledKeys(newList, newCount).toSet()
+    val enabledKeys = PositionalMapper.getEnabledKeys(newList, newCount)
+    val appMap = apps.associateBy { it.key.toString() }
 
-    val newSelection = activePackageNames.mapNotNull { keyString ->
-        val app = apps.find { it.key.toString() == keyString }
-        app?.toAppInfo(context)?.apply {
-            rank = activePackageNames.indexOf(keyString)
+    val newSelection = enabledKeys.mapIndexedNotNull { index, keyString ->
+        appMap[keyString]?.toAppInfo(context)?.apply {
+            rank = index
         }
     }
 

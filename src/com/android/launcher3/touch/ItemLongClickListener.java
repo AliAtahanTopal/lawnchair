@@ -37,7 +37,9 @@ import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.dragndrop.DragController;
 import com.android.launcher3.dragndrop.DragOptions;
 import com.android.launcher3.folder.Folder;
+import com.android.launcher3.graphics.DragPreviewProvider;
 import com.android.launcher3.logging.StatsLogManager.StatsLogger;
+import com.android.launcher3.model.data.FolderInfo;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.model.data.PrivateSpaceInstallAppButtonInfo;
 import com.android.launcher3.testing.TestLogging;
@@ -151,30 +153,37 @@ public class ItemLongClickListener {
         if (launcher.getWorkspace().isSwitchingState()) return false;
 
         StatsLogger logger = launcher.getStatsLogManager().logger();
+        ItemInfo dragInfo = null;
         if (v.getTag() instanceof ItemInfo itemInfo) {
             if (itemInfo instanceof PrivateSpaceInstallAppButtonInfo) {
                 return false;
             }
-            logger.withItemInfo((ItemInfo) v.getTag());
+            dragInfo = itemInfo;
+            if (dragInfo instanceof FolderInfo && dragInfo.container == ItemInfo.NO_ID) {
+                dragInfo = dragInfo.makeShallowCopy();
+            }
+            logger.withItemInfo(dragInfo);
         }
         logger.log(LAUNCHER_ALLAPPS_ITEM_LONG_PRESSED);
 
         // Start the drag
         final DragController dragController = launcher.getDragController();
+        final View finalV = v;
         dragController.addDragListener(new DragController.DragListener() {
             @Override
             public void onDragStart(DropTarget.DragObject dragObject, DragOptions options) {
-                v.setVisibility(INVISIBLE);
+                finalV.setVisibility(INVISIBLE);
             }
 
             @Override
             public void onDragEnd() {
-                v.setVisibility(VISIBLE);
+                finalV.setVisibility(VISIBLE);
                 dragController.removeDragListener(this);
             }
         });
 
-        launcher.getWorkspace().beginDragShared(v, launcher.getAppsView(), new DragOptions());
+        launcher.getWorkspace().beginDragShared(v, null, launcher.getAppsView(), dragInfo,
+                new DragPreviewProvider(v), new DragOptions());
         return false;
     }
 

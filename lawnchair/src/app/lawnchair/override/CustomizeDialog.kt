@@ -45,9 +45,12 @@ import app.lawnchair.ui.preferences.components.layout.PreferenceGroup
 import app.lawnchair.ui.preferences.navigation.SelectIcon
 import app.lawnchair.ui.util.addIfNotNull
 import app.lawnchair.util.navigationBarsOrDisplayCutoutPadding
+import com.android.launcher3.Launcher
 import com.android.launcher3.LauncherAppState
 import com.android.launcher3.LauncherState
 import com.android.launcher3.R
+import com.android.launcher3.dragndrop.FolderAdaptiveIcon
+import com.android.launcher3.model.data.FolderInfo
 import com.android.launcher3.util.ComponentKey
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 
@@ -209,6 +212,72 @@ fun CustomizeAppDialog(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun CustomizeFolderDialog(
+    folderInfo: FolderInfo,
+    modifier: Modifier = Modifier,
+    onClose: () -> Unit,
+) {
+    val context = LocalContext.current
+    val launcher = context.launcher
+
+    var title by remember {
+        mutableStateOf(folderInfo.title?.toString() ?: "")
+    }
+
+    // FIX: Retrieve the workspace configuration size or safely fallback to a valid static placeholder resource
+    // to bypass internal platform size generation errors entirely.
+    val icon = remember(folderInfo) {
+        val size = launcher.deviceProfile?.iconSizePx?.takeIf { it > 0 } ?: 180
+        val sizePoint = android.graphics.Point(size, size)
+
+        try {
+            com.android.launcher3.dragndrop.FolderAdaptiveIcon.createFolderAdaptiveIcon(
+                launcher,
+                folderInfo.id,
+                sizePoint
+            ) ?: androidx.core.content.ContextCompat.getDrawable(context, R.drawable.widgets_24px)!!
+        } catch (e: Exception) {
+            // Ultimate fallback if internal canvas transformations still reject the sizing bounds
+            androidx.core.content.ContextCompat.getDrawable(context, R.drawable.widgets_24px)!!
+        }
+    }
+
+    var coverMode by remember {
+        mutableStateOf(folderInfo.hasOption(FolderInfo.FLAG_COVER_MODE))
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            if (title != (folderInfo.title?.toString() ?: "")) {
+                folderInfo.setTitle(title, launcher.modelWriter)
+            }
+            if (coverMode != folderInfo.hasOption(FolderInfo.FLAG_COVER_MODE)) {
+                folderInfo.setOption(FolderInfo.FLAG_COVER_MODE, coverMode, launcher.modelWriter)
+            }
+        }
+    }
+
+    CustomizeDialog(
+        icon = icon,
+        title = title,
+        onTitleChange = { title = it },
+        defaultTitle = "",
+        launchSelectIcon = null,
+        modifier = modifier,
+    ) {
+        PreferenceGroup {
+            Item {
+                SwitchPreference(
+                    checked = coverMode,
+                    label = stringResource(id = R.string.folder_cover_mode_title),
+                    onCheckedChange = { coverMode = it },
+                )
             }
         }
     }

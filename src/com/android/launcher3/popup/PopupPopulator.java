@@ -117,6 +117,11 @@ public class PopupPopulator {
         final ComponentName activity = originalInfo.getTargetComponent();
         final UserHandle user = originalInfo.user;
         final String targetPackage = originalInfo.getTargetPackage();
+
+        if (targetPackage == null) {
+            return () -> { };
+        }
+
         return () -> {
             ApplicationInfoWrapper infoWrapper =
                     new ApplicationInfoWrapper(context, targetPackage, user);

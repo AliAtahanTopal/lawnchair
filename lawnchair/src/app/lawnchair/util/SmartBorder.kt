@@ -86,16 +86,16 @@ fun Modifier.smartBorder(
         var insetPath: Path? = null
 
         val cornerCompensation = width.toPx().half * MAGIC_FLOAT
-        if (borderSize > 0 && size.minDimension > 0f) {
+        if (borderSize > 0 && borderSize.isFinite() && size.minDimension > 0f) {
             if (outline is Outline.Rectangle) {
                 stroke = Stroke(borderSize)
             } else {
                 val strokeWidth = MAGIC_FLOAT * borderSize
                 inset = borderSize - strokeWidth / 2
-                val insetSize = Size(
-                    size.width - inset * 2,
-                    size.height - inset * 2,
-                )
+                if (!inset.isFinite()) inset = 0f
+                val updatedWidth = (size.width - inset * 2).let { if (it.isFinite()) it else 0f }.coerceAtLeast(0f)
+                val updatedHeight = (size.height - inset * 2).let { if (it.isFinite()) it else 0f }.coerceAtLeast(0f)
+                val insetSize = Size(updatedWidth, updatedHeight)
                 insetOutline = shape.createOutline(insetSize, layoutDirection, this)
                 insetOutline = cutOutline(insetOutline, borderSize * 2, cutTop, cutBottom)
                 stroke = Stroke(strokeWidth)

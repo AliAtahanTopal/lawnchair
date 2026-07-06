@@ -160,6 +160,12 @@ public abstract class BaseAllAppsAdapter<T extends Context & ActivityContext> ex
          * as well. Returning true will prevent redrawing of thee item.
          */
         public boolean isContentSame(AdapterItem other) {
+            if (viewType != other.viewType) return false;
+            if (viewType == VIEW_TYPE_FOLDER) {
+                return java.util.Objects.equals(folderInfo.title, other.folderInfo.title) &&
+                       folderInfo.getContents().size() == other.folderInfo.getContents().size() &&
+                       folderInfo.getContents().equals(other.folderInfo.getContents());
+            }
             return itemInfo == null && other.itemInfo == null;
         }
 
@@ -357,9 +363,10 @@ public abstract class BaseAllAppsAdapter<T extends Context & ActivityContext> ex
                 FolderInfo folderInfo = mApps.getAdapterItems().get(position).folderInfo;
                 ViewGroup container = (ViewGroup) holder.itemView;
                 container.removeAllViews();
-                container.addView(
-                    FolderIcon.inflateFolderAndIcon(R.layout.all_apps_folder_icon, mActivityContext,
-                    container, folderInfo));
+                FolderIcon folderIcon = FolderIcon.inflateFolderAndIcon(R.layout.all_apps_folder_icon, mActivityContext,
+                    container, folderInfo);
+                folderIcon.setOnLongClickListener(mOnIconLongClickListener);
+                container.addView(folderIcon);
                 break;
             default:
                 if (mAdapterProvider.isViewSupported(holder.getItemViewType())) {

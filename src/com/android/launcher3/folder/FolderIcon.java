@@ -69,6 +69,7 @@ import com.android.launcher3.celllayout.CellLayoutLayoutParams;
 import com.android.launcher3.dot.FolderDotInfo;
 import com.android.launcher3.dragndrop.BaseItemDragListener;
 import com.android.launcher3.dragndrop.DragLayer;
+import com.android.launcher3.dragndrop.DragOptions.PreDragCondition;
 import com.android.launcher3.dragndrop.DragView;
 import com.android.launcher3.dragndrop.DraggableView;
 import com.android.launcher3.icons.DotRenderer;
@@ -80,8 +81,10 @@ import com.android.launcher3.model.data.AppPairInfo;
 import com.android.launcher3.model.data.FolderInfo;
 import com.android.launcher3.model.data.FolderInfo.LabelState;
 import com.android.launcher3.model.data.ItemInfo;
+import com.android.launcher3.model.data.ItemInfoWithIcon;
 import com.android.launcher3.model.data.WorkspaceItemFactory;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
+import com.android.launcher3.popup.PopupContainerWithArrow;
 import com.android.launcher3.util.MultiTranslateDelegate;
 import com.android.launcher3.util.Thunk;
 import com.android.launcher3.views.ActivityContext;
@@ -117,7 +120,6 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
 
     PreviewBackground mBackground = new PreviewBackground(getContext());
     private boolean mBackgroundIsVisible = true;
-
     FolderGridOrganizer mPreviewVerifier;
     ClippedFolderIconLayoutRule mPreviewLayoutRule;
     private PreviewItemManager mPreviewItemManager;
@@ -182,6 +184,14 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
 
         icon.setFolder(folder);
         return icon;
+    }
+
+    public boolean isCoverModeEnabled() {
+        return mInfo != null && mInfo.hasOption(FolderInfo.FLAG_COVER_MODE) && !isInAppDrawer();
+    }
+
+    public void updateCoverModeSharing() {
+        // No-op
     }
 
     /**
@@ -341,6 +351,11 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
                 workspace.setFinalTransitionTransform();
                 float scaleX = getScaleX();
                 float scaleY = getScaleY();
+                if (Float.isNaN(scaleX) || Float.isInfinite(scaleX)
+                        || Float.isNaN(scaleY) || Float.isInfinite(scaleY)) {
+                    scaleX = 1.0f;
+                    scaleY = 1.0f;
+                }
                 setScaleX(1.0f);
                 setScaleY(1.0f);
                 scaleRelativeToDragLayer = dragLayer.getDescendantRectRelativeToSelf(this, to);
@@ -426,7 +441,9 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
     }
     
     public boolean isInAppDrawer() {
-        return mInfo.container == ItemInfo.NO_ID;
+        return mInfo != null && (mInfo.container == ItemInfo.NO_ID
+                || mInfo.container == LauncherSettings.Favorites.CONTAINER_ALL_APPS
+                || mInfo.container == LauncherSettings.Favorites.CONTAINER_ALL_APPS_PREDICTION);
     }
 
     /**
@@ -554,6 +571,12 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
     }
 
     private float getLocalCenterForIndex(int index, int curNumItems, int[] center) {
+        if (isCoverModeEnabled() && mInfo != null && !mInfo.getContents().isEmpty()) {
+            center[0] = getWidth() / 2;
+            center[1] = getPaddingTop() + mActivity.getDeviceProfile().iconSizePx / 2;
+            return 1.0f;
+        }
+
         mTmpParams = mPreviewItemManager.computePreviewItemDrawingParams(
                 Math.min(MAX_NUM_ITEMS_IN_PREVIEW, index), curNumItems, mTmpParams);
 
@@ -594,25 +617,55 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
 
     @Override
     protected void dispatchDraw(Canvas canvas) {
-        super.dispatchDraw(canvas);
-
-        if (!mBackgroundIsVisible) return;
-
+        updateCoverModeSharing();
         mPreviewItemManager.recomputePreviewDrawingParams();
 
-        if (!mBackground.drawingDelegated()) {
-            mBackground.drawBackground(canvas);
+        if (isCoverModeEnabled() && mInfo != null && !mInfo.getContents().isEmpty()) {
+            super.dispatchDraw(canvas);
+
+            // 1. Get the first app in the folder
+            ItemInfo itemInfo = mInfo.getContents().get(0);
+
+            // 2. Get its full-size icon
+            // Launcher3 stores the icon bitmap inside the item info
+            if (itemInfo instanceof ItemInfoWithIcon firstApp && firstApp.bitmap != null && firstApp.bitmap.icon != null) {
+                Drawable fullSizeIcon = firstApp.newIcon(getContext());
+
+                // 3. Calculate bounds to draw it perfectly centered 
+                // matching a standard app icon's size
+                int iconSize = mActivity.getDeviceProfile().iconSizePx;
+                int width = getWidth();
+
+                int left = (width - iconSize) / 2;
+                // Align to top, leaving room for the text label below
+                int top = getPaddingTop();
+
+                fullSizeIcon.setBounds(left, top, left + iconSize, top + iconSize);
+
+                // 4. Draw the single icon directly to the canvas
+                fullSizeIcon.draw(canvas);
+            }
+
+            drawDot(canvas);
+        } else {
+            super.dispatchDraw(canvas);
+
+            if (!mBackgroundIsVisible) return;
+
+            if (!mBackground.drawingDelegated()) {
+                mBackground.drawBackground(canvas);
+            }
+
+            if (mCurrentPreviewItems.isEmpty() && !mAnimating) return;
+
+            mPreviewItemManager.draw(canvas);
+
+            if (!mBackground.drawingDelegated()) {
+                mBackground.drawBackgroundStroke(canvas);
+            }
+
+            drawDot(canvas);
         }
-
-        if (mCurrentPreviewItems.isEmpty() && !mAnimating) return;
-
-        mPreviewItemManager.draw(canvas);
-
-        if (!mBackground.drawingDelegated()) {
-            mBackground.drawBackgroundStroke(canvas);
-        }
-
-        drawDot(canvas);
     }
 
     public void drawDot(Canvas canvas) {
@@ -625,8 +678,10 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
             iconBounds.top = getPaddingTop();
             iconBounds.bottom = iconBounds.top + iconSize;
 
-            float iconScale = (float) mBackground.previewSize / iconSize;
-            Utilities.scaleRectAboutCenter(iconBounds, iconScale);
+            if (!(isCoverModeEnabled() && mInfo != null && !mInfo.getContents().isEmpty())) {
+                float iconScale = (float) mBackground.previewSize / iconSize;
+                Utilities.scaleRectAboutCenter(iconBounds, iconScale);
+            }
 
             // If we are animating to the accepting state, animate the dot out.
             mDotParams.scale = Math.max(0, mDotScale - mBackground.getAcceptScaleProgress());
@@ -703,17 +758,7 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_DOWN
-                && shouldIgnoreTouchDown(event.getX(), event.getY())) {
-            return false;
-        }
-
-        // Call the superclass onTouchEvent first, because sometimes it changes the state to
-        // isPressed() on an ACTION_UP
-        super.onTouchEvent(event);
-        mLongPressHelper.onTouchEvent(event);
-        // Keep receiving the rest of the events
-        return true;
+        return super.onTouchEvent(event);
     }
 
     /**
@@ -729,10 +774,6 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
     public void cancelLongPress() {
         super.cancelLongPress();
         mLongPressHelper.cancelLongPress();
-    }
-
-    private boolean isInHotseat() {
-        return mInfo.container == LauncherSettings.Favorites.CONTAINER_HOTSEAT;
     }
 
     public void clearLeaveBehindIfExists() {
@@ -803,6 +844,26 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
         if (enableCursorHoverStates()) {
             mBackground.setHovered(hovered);
         }
+    }
+
+    @Override
+    public boolean performClick() {
+        if (isCoverModeEnabled() && mInfo != null && !mInfo.getContents().isEmpty()) {
+            ItemInfo firstApp = mInfo.getContents().get(0);
+            if (firstApp.getIntent() != null) {
+                mActivity.startActivitySafely(this, firstApp.getIntent(), firstApp);
+                return true;
+            }
+        }
+        return super.performClick();
+    }
+
+    /**
+     * Starts a long press action and returns the corresponding pre-drag condition
+     */
+    public PreDragCondition startLongPressAction() {
+        PopupContainerWithArrow popup = PopupContainerWithArrow.showForIcon(this);
+        return popup != null ? popup.createPreDragCondition(true) : null;
     }
 
     /**

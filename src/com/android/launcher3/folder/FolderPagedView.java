@@ -347,7 +347,11 @@ public class FolderPagedView extends PagedView<PageIndicatorDots> implements Cli
                 ((BubbleTextView) icon).applyFromItemInfoWithIcon((ItemInfoWithIcon) item);
             } else {
                 icon = mViewCache.getView(R.layout.folder_application, getContext(), null);
-                ((BubbleTextView) icon).applyFromWorkspaceItem((WorkspaceItemInfo) item);
+                if (item instanceof WorkspaceItemInfo workspaceItemInfo) {
+                    ((BubbleTextView) icon).applyFromWorkspaceItem(workspaceItemInfo);
+                } else {
+                    ((BubbleTextView) icon).applyFromItemInfoWithIcon((ItemInfoWithIcon) item);
+                }
             }
         }
 

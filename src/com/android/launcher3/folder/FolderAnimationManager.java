@@ -159,7 +159,9 @@ public class FolderAnimationManager implements FolderAnimationCreator {
         float previewScale = rule.scaleForItem(itemsInPreview.size(), 0);
         float previewSize = rule.getIconSize() * previewScale;
         float baseIconSize = getBubbleTextView(itemsInPreview.get(0)).getIconSize();
-        float initialScale = previewSize / baseIconSize * scaleRelativeToDragLayer;
+        float initialScale = baseIconSize > 0
+                ? previewSize / baseIconSize * scaleRelativeToDragLayer
+                : 1.0f;
         final float finalScale = 1f;
         float scale = mIsOpening ? initialScale : finalScale;
         mFolder.setPivotX(0);

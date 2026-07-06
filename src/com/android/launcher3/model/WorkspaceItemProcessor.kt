@@ -20,7 +20,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
-import android.content.pm.LauncherApps.ShortcutQuery
 import android.content.pm.PackageInstaller
 import android.content.pm.ShortcutInfo
 import android.graphics.Point
@@ -427,16 +426,10 @@ class WorkspaceItemProcessor(
      */
     private fun retryDeepShortcutById(key: ShortcutKey): ShortcutInfo? {
         FileLog.d(TAG, "retryDeepShortcutById: package=${key.packageName}, shortcutId=${key.id}")
-        return launcherApps
-            .getShortcuts(
-                ShortcutQuery().apply {
-                    setPackage(key.packageName)
-                    setShortcutIds(listOf(key.id))
-                    setQueryFlags(ShortcutRequest.ALL)
-                },
-                key.user,
-            )
-            ?.firstOrNull()
+        return ShortcutRequest(context, key.user)
+            .forPackage(key.packageName, key.id)
+            .query(ShortcutRequest.ALL)
+            .firstOrNull()
     }
 
     /**

@@ -76,11 +76,12 @@ data class IconAnimationData(
                 // Match scale of icons in the preview of the items on the first page.
                 val previewIconScale = layoutRule.scaleForItem(numItemsOnPage, page)
                 val previewIconSize = layoutRule.iconSize * previewIconScale
-                val baseIconSize = getBubbleTextView(currentIcon).iconSize.toFloat()
+                val baseIconSize = getBubbleTextView(currentIcon).iconSize.toFloat().coerceAtLeast(1f)
                 val iconScale = previewIconSize / baseIconSize
 
                 // Scale when folder closed
-                val initialIconScale = iconScale / folderAnimationData.folderScale
+                val folderScale = folderAnimationData.folderScale.coerceAtLeast(0.001f)
+                val initialIconScale = iconScale / folderScale
                 // Scale when folder open
                 val finalIconScale = 1f
                 // Scale to start with in Animation

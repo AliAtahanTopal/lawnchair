@@ -61,12 +61,14 @@ object PositionalMapper {
         enabledIds: List<String>,
         idSelector: (T) -> String,
     ): Pair<List<PositionalListItem<T>>, Int> {
-        val enabledItems = allItems.filter { idSelector(it) in enabledIds }
-            // Ensure enabled items follow the order defined in enabledIds
-            .sortedBy { enabledIds.indexOf(idSelector(it)) }
-            .map { PositionalListItem(it, idSelector(it)) }
+        val enabledIdsSet = enabledIds.toSet()
+        val allItemsMap = allItems.associateBy { idSelector(it) }
 
-        val disabledItems = allItems.filter { idSelector(it) !in enabledIds }
+        val enabledItems: List<PositionalListItem<T>> = enabledIds.mapNotNull { id ->
+            allItemsMap[id]?.let { PositionalListItem(it, id) }
+        }
+
+        val disabledItems: List<PositionalListItem<T>> = allItems.filter { idSelector(it) !in enabledIdsSet }
             .map { PositionalListItem(it, idSelector(it)) }
 
         return (enabledItems + disabledItems) to enabledItems.size

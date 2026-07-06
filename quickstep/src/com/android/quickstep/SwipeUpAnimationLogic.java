@@ -517,6 +517,7 @@ public abstract class SwipeUpAnimationLogic implements
             if (Float.isNaN(scale)) {
                 Log.e(TAG, "Scale is NaN: starting dimensions=[" + startWidth + ", " + startHeight
                         + "], current dimensions=[" + currentWidth + ", " + currentHeight + "]");
+                return;
             }
 
             mTargetTaskView.setScaleX(scale);
@@ -592,8 +593,12 @@ public abstract class SwipeUpAnimationLogic implements
             if (!mAnimationFactory.isAnimatingIntoIcon()) {
                 mTargetTaskView.setTranslationX(mTaskViewTranslationX);
                 mTargetTaskView.setTranslationY(mTaskViewTranslationY);
-                mTargetTaskView.setScaleX(mTaskViewScaleX);
-                mTargetTaskView.setScaleY(mTaskViewScaleY);
+                if (!Float.isNaN(mTaskViewScaleX) && !Float.isInfinite(mTaskViewScaleX)) {
+                    mTargetTaskView.setScaleX(mTaskViewScaleX);
+                }
+                if (!Float.isNaN(mTaskViewScaleY) && !Float.isInfinite(mTaskViewScaleY)) {
+                    mTargetTaskView.setScaleY(mTaskViewScaleY);
+                }
                 return;
             }
             mAnimationFactory.setTaskViewArtist(null);

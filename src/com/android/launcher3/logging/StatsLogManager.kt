@@ -696,7 +696,7 @@ open class StatsLogManager protected constructor(@JvmField protected val mContex
          * By default container related fields are derived from [ItemInfo], this method would
          * override those values.
          */
-        fun withContainerInfo(containerInfo: ContainerInfo?) = this
+        fun withContainerInfo(containerInfo: LauncherAtom.ContainerInfo): StatsLogger = this
 
         /** Sets logging fields from provided [SliceItem]. */
         fun withSliceItem(sliceItem: SliceItem) = this

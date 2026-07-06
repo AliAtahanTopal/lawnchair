@@ -169,11 +169,17 @@ class TaskContentView @JvmOverloads constructor(context: Context, attrs: Attribu
     }
 
     override fun setScaleX(scaleX: Float) {
+        if (scaleX.isNaN() || scaleX.isInfinite()) {
+            return
+        }
         super.setScaleX(scaleX)
         taskThumbnailView?.parentScaleXUpdated(scaleX)
     }
 
     override fun setScaleY(scaleY: Float) {
+        if (scaleY.isNaN() || scaleY.isInfinite()) {
+            return
+        }
         super.setScaleY(scaleY)
         taskThumbnailView?.parentScaleYUpdated(scaleY)
     }

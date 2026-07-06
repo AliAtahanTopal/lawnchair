@@ -209,6 +209,11 @@ public class FloatingTaskView extends FrameLayout {
         float scaleX = bounds.width() / lp.width;
         float scaleY = bounds.height() / lp.height;
 
+        if (Float.isNaN(scaleX) || Float.isNaN(scaleY) || Float.isInfinite(scaleX) || Float.isInfinite(scaleY) ||
+                Float.isNaN(dX) || Float.isNaN(dY) || Float.isInfinite(dX) || Float.isInfinite(dY)) {
+            return;
+        }
+
         mFullscreenParams.updateParams(bounds, progress, scaleX, scaleY);
 
         setTranslationX(dX);
@@ -218,8 +223,8 @@ public class FloatingTaskView extends FrameLayout {
         mSplitPlaceholderView.invalidate();
         mThumbnailView.invalidate();
 
-        float childScaleX = 1f / scaleX;
-        float childScaleY = 1f / scaleY;
+        float childScaleX = scaleX == 0 ? 0 : 1f / scaleX;
+        float childScaleY = scaleY == 0 ? 0 : 1f / scaleY;
         mOrientationHandler.setPrimaryScale(mSplitPlaceholderView.getIconView(), childScaleX);
         mOrientationHandler.setSecondaryScale(mSplitPlaceholderView.getIconView(), childScaleY);
     }

@@ -965,8 +965,12 @@ class SplitAnimationController(val splitSelectStateController: SplitSelectStateC
                     floatingView.progress = percent
                     floatingView.x = mDx.value
                     floatingView.y = mDy.value
-                    floatingView.scaleX = mScaleX.value
-                    floatingView.scaleY = mScaleY.value
+                    val scaleX = mScaleX.value
+                    val scaleY = mScaleY.value
+                    if (!scaleX.isNaN() && !scaleX.isInfinite() && !scaleY.isNaN() && !scaleY.isInfinite()) {
+                        floatingView.scaleX = scaleX
+                        floatingView.scaleY = scaleY
+                    }
                     floatingView.invalidate()
                 }
             }

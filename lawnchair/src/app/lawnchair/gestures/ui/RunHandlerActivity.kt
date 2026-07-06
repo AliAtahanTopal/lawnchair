@@ -19,22 +19,30 @@ package app.lawnchair.gestures.ui
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import app.lawnchair.LawnchairLauncher
 
 class RunHandlerActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (intent.action == LawnchairShortcutActivity.START_ACTION) {
+        val action = intent.action
+        if (action == LawnchairShortcutActivity.START_ACTION) {
+            val handlerExtra = intent.getStringExtra(LawnchairShortcutActivity.EXTRA_HANDLER)
+            if (handlerExtra == null) {
+                Log.e("RunHandlerActivity", "EXTRA_HANDLER is null for START_ACTION")
+            }
             startActivity(
                 Intent(this, LawnchairLauncher::class.java).apply {
-                    action = LawnchairShortcutActivity.START_ACTION
+                    this.action = LawnchairShortcutActivity.START_ACTION
                     putExtra(
                         LawnchairShortcutActivity.EXTRA_HANDLER,
-                        intent.getStringExtra(LawnchairShortcutActivity.EXTRA_HANDLER),
+                        handlerExtra,
                     )
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 },
             )
+        } else {
+            Log.e("RunHandlerActivity", "Received unexpected action: $action")
         }
         finish()
     }

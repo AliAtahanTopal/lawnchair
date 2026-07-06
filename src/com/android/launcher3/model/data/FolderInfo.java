@@ -59,6 +59,22 @@ public class FolderInfo extends CollectionInfo {
     public static final int FLAG_MANUAL_FOLDER_NAME = 0x00000008;
 
     /**
+     * Folder is in cover mode.
+     */
+    public static final int FLAG_COVER_MODE = 0x00000010;
+
+    public static final int SYNC_ID_MASK = 0xFFFF0000;
+    public static final int SYNC_ID_SHIFT = 16;
+
+    public int getSyncId() {
+        return (options & SYNC_ID_MASK) >>> SYNC_ID_SHIFT;
+    }
+
+    public void setSyncId(int syncId) {
+        options = (options & ~SYNC_ID_MASK) | (syncId << SYNC_ID_SHIFT);
+    }
+
+    /**
      * Different states of folder label.
      */
     public enum LabelState {
@@ -99,6 +115,14 @@ public class FolderInfo extends CollectionInfo {
     public void add(@NonNull ItemInfo item) {
         if (!willAcceptItemType(item.itemType)) {
             throw new RuntimeException("tried to add an illegal type into a folder");
+        }
+        com.android.launcher3.util.ComponentKey key = item.getComponentKey();
+        if (key != null) {
+            for (ItemInfo existing : contents) {
+                if (key.equals(existing.getComponentKey())) {
+                    return;
+                }
+            }
         }
         getContents().add(item);
     }
@@ -231,6 +255,7 @@ public class FolderInfo extends CollectionInfo {
         super.copyFrom(info);
         if (info instanceof FolderInfo fi) {
             contents.addAll(fi.getContents());
+            setSyncId(fi.getSyncId());
         }
     }
 

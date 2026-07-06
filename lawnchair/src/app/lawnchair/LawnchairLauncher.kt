@@ -23,6 +23,7 @@ import android.content.Intent
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.util.Log
 import android.util.Pair
 import android.view.Display
 import android.view.View
@@ -82,6 +83,7 @@ import com.android.launcher3.widget.RoundedCornerEnforcement
 import com.android.systemui.plugins.shared.LauncherOverlayManager
 import com.android.systemui.shared.system.QuickStepContract
 import com.kieronquinn.app.smartspacer.sdk.client.SmartspacerClient
+import com.patrykmichalik.opto.core.firstBlocking
 import com.patrykmichalik.opto.core.onEach
 import dev.kdrag0n.monet.theme.ColorScheme
 import java.util.stream.Stream
@@ -250,9 +252,15 @@ class LawnchairLauncher : QuickstepLauncher() {
     override fun onNewIntent(intent: Intent?) {
         if (intent != null && intent.action == LawnchairShortcutActivity.START_ACTION) {
             val handlerString = intent.getStringExtra(LawnchairShortcutActivity.EXTRA_HANDLER)
-            val config = handlerString?.let { GestureHandlerConfig.fromString(it) }
-            if (config != null && config.isExternallyInvokable()) {
-                gestureController.handle(config)
+            if (handlerString == null) {
+                Log.e("LawnchairLauncher", "START_ACTION received but EXTRA_HANDLER is missing")
+            } else {
+                val config = GestureHandlerConfig.fromString(handlerString)
+                if (config.isExternallyInvokable()) {
+                    gestureController.handle(config)
+                } else {
+                    Log.e("LawnchairLauncher", "Handler is not externally invokable: $config")
+                }
             }
         }
 
@@ -267,7 +275,7 @@ class LawnchairLauncher : QuickstepLauncher() {
     override fun getSupportedShortcuts(container: Int): Stream<SystemShortcut.Factory<*>> = Stream.concat(
         super.getSupportedShortcuts(container),
         Stream.concat(
-            Stream.of(LawnchairShortcut.UNINSTALL, LawnchairShortcut.CUSTOMIZE, LawnchairShortcut.OPEN_IN_STORE),
+            Stream.of(LawnchairShortcut.UNINSTALL, LawnchairShortcut.CUSTOMIZE, LawnchairShortcut.OPEN_IN_STORE, LawnchairShortcut.CUSTOMIZE_FOLDER),
             if (LawnchairApp.isRecentsEnabled) Stream.of(LawnchairShortcut.PAUSE_APPS) else Stream.empty(),
         ),
     )
@@ -324,7 +332,7 @@ class LawnchairLauncher : QuickstepLauncher() {
     }
 
     override fun showDefaultOptions(x: Float, y: Float) {
-        val showWallpaperCarousel = "+carousel" in preferenceManager2.launcherPopupOrder.firstCached()
+        val showWallpaperCarousel = "+carousel" in preferenceManager2.launcherPopupOrder.firstBlocking()
 
         if (showWallpaperCarousel) {
             show<LawnchairLauncher>(
@@ -494,7 +502,7 @@ class LawnchairLauncher : QuickstepLauncher() {
      */
     private fun reloadIconsIfNeeded() {
         if (
-            preferenceManager2.alwaysReloadIcons.firstCached()
+            preferenceManager2.alwaysReloadIcons.firstBlocking()
         ) {
             LauncherAppState.getInstance(this).model.reloadIfActive()
         }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.LauncherApps
 import android.graphics.Canvas
 import android.graphics.drawable.Icon
+import android.util.Log
 import androidx.annotation.DrawableRes
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.graphics.createBitmap
@@ -191,7 +192,8 @@ sealed class GestureHandlerConfig {
         fun fromString(string: String): GestureHandlerConfig {
             return try {
                 kotlinxJson.decodeFromString<GestureHandlerConfig>(string)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.e("GestureHandlerConfig", "Error parsing GestureHandlerConfig from string: $string", e)
                 NoOp
             }
         }

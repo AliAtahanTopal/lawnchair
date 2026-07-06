@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.lawnchair.data.folder.service.FolderService
 import app.lawnchair.preferences2.ReloadHelper
+import com.android.launcher3.LauncherAppState
 import com.android.launcher3.model.data.AppInfo
 import com.android.launcher3.model.data.FolderInfo
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,28 +53,58 @@ class FolderViewModel(
         reloadHelper.reloadGrid()
     }
 
-    fun updateFolderItems(id: Int, title: String, appInfo: List<AppInfo>) {
+    fun updateFolderItems(id: Int, title: String, appInfos: List<AppInfo>) {
         viewModelScope.launch {
-            repository.updateFolderWithItems(id, title, appInfo)
-            // Update the local state flow so UI can observe changes without full reload if needed,
-            // though for now we just rely on reloadGrid to refresh the launcher.
-            // We call reloadGrid *after* the DB update is complete.
+            repository.updateFolderWithItems(id, title, appInfos)
+
+            // Sync to home screen folders
+            val model = LauncherAppState.getInstance(getApplication()).model
+            model.enqueueModelUpdateTask { taskController, dataModel, _ ->
+                val foldersToUpdate = dataModel.itemsIdMap.filterIsInstance<FolderInfo>()
+                    .filter { it.syncId == id }
+
+                foldersToUpdate.forEach { homeFolder ->
+                    val modelWriter = taskController.getModelWriter()
+
+                    // Clear existing contents in DB and memory
+                    val oldContents = ArrayList(homeFolder.getContents())
+                    oldContents.forEach { item ->
+                        modelWriter.deleteItemFromDatabase(item, "Synced Folder update")
+                    }
+                    homeFolder.getContents().clear()
+
+                    // Add new contents
+                    appInfos.forEachIndexed { index, app ->
+                        val item = app.makeWorkspaceItem(getApplication())
+                        item.rank = index
+                        item.container = homeFolder.id
+                        homeFolder.add(item)
+                        modelWriter.addItemToDatabase(item, homeFolder.id, 0, 0, 0)
+                    }
+                    modelWriter.updateItemInDatabase(homeFolder)
+                }
+                if (foldersToUpdate.isNotEmpty()) {
+                    taskController.bindUpdatedWorkspaceItems(foldersToUpdate)
+                }
+            }
+
             folderInfo.value = repository.getFolderInfo(id, true)
             reloadHelper.reloadGrid()
         }
     }
 
-    fun createFolder(folderInfo: FolderInfo) {
+    fun createFolder(folderInfo: FolderInfo, onCreated: (Int) -> Unit = {}) {
         viewModelScope.launch {
-            repository.saveFolderInfo(folderInfo)
+            val id = repository.saveFolderInfo(folderInfo)
+            onCreated(id.toInt())
         }
     }
 
     fun deleteFolder(id: Int) {
         viewModelScope.launch {
             repository.deleteFolderInfo(id)
+            reloadHelper.reloadGrid()
         }
-        reloadHelper.reloadGrid()
     }
 }
 

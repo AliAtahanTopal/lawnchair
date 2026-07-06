@@ -20,10 +20,8 @@ import static com.android.launcher3.logging.StatsLogManager.LAUNCHER_STATE_HOME;
 
 import android.content.Context;
 
-import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.Launcher;
 import com.android.launcher3.LauncherState;
-import com.android.launcher3.Workspace;
 import com.android.launcher3.views.ActivityContext;
 
 /**
@@ -47,35 +45,12 @@ public class SpringLoadedState extends LauncherState {
     }
 
     @Override
-    public ScaleAndTranslation getWorkspaceScaleAndTranslation(Launcher launcher) {
-        DeviceProfile grid = launcher.getDeviceProfile();
-        Workspace<?> ws = launcher.getWorkspace();
-        if (ws.getChildCount() == 0) {
-            return super.getWorkspaceScaleAndTranslation(launcher);
-        }
-
-        float shrunkTop = grid.getCellLayoutSpringLoadShrunkTop();
-        float scale = grid.getWorkspaceSpringLoadScale(launcher);
-
-        float halfHeight = ws.getHeight() / 2;
-        float myCenter = ws.getTop() + halfHeight;
-        float cellTopFromCenter = halfHeight - ws.getChildAt(0).getTop();
-        float actualCellTop = myCenter - cellTopFromCenter * scale;
-        return new ScaleAndTranslation(scale, 0, shrunkTop - actualCellTop);
-    }
-
-    @Override
     protected float getDepthUnchecked(Context context) {
         if (enableScalingRevealHomeAnimation()) {
             return DEPTH_15_PERCENT;
         } else {
             return 0.5f;
         }
-    }
-
-    @Override
-    public ScaleAndTranslation getHotseatScaleAndTranslation(Launcher launcher) {
-        return new ScaleAndTranslation(1, 0, 0);
     }
 
     @Override

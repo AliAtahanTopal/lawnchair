@@ -9,6 +9,7 @@ import app.lawnchair.preferences2.PreferenceManager2
 import com.android.launcher3.AbstractFloatingView
 import com.android.launcher3.LauncherState
 import com.android.launcher3.Utilities
+import com.android.launcher3.folder.FolderIcon
 import com.android.launcher3.touch.BothAxesSwipeDetector
 import com.android.launcher3.util.TouchController
 import kotlin.math.absoluteValue
@@ -37,6 +38,7 @@ class VerticalSwipeTouchController(
 
     private var pointerCount = 0
     private var triggered = false
+    private var startedOnCoveredFolder: FolderIcon? = null
 
     init {
         launcher.lifecycleScope.launch {
@@ -58,6 +60,7 @@ class VerticalSwipeTouchController(
 
     override fun onControllerInterceptTouchEvent(ev: MotionEvent): Boolean {
         if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
+            startedOnCoveredFolder = findCoveredFolder(ev)
             noIntercept = !canInterceptTouch(ev)
             if (noIntercept) {
                 return false
@@ -75,6 +78,34 @@ class VerticalSwipeTouchController(
         // We don't need to check when the pointer count changes during a swipe
         pointerCount = ev.pointerCount
         return detector.onTouchEvent(ev)
+    }
+
+    private fun findCoveredFolder(ev: MotionEvent): FolderIcon? {
+        try {
+            val workspace = launcher.workspace ?: return null
+            val dragLayer = launcher.dragLayer ?: return null
+            val tempCoords = floatArrayOf(ev.x, ev.y)
+
+            dragLayer.mapCoordInSelfToDescendant(workspace, tempCoords)
+            val hitView = workspace.findViewAtPosition(tempCoords[0], tempCoords[1])
+            if (hitView is FolderIcon && hitView.isCoverModeEnabled()) {
+                return hitView
+            }
+
+            val hotseat = launcher.hotseat
+            if (hotseat != null) {
+                tempCoords[0] = ev.x
+                tempCoords[1] = ev.y
+                dragLayer.mapCoordInSelfToDescendant(hotseat, tempCoords)
+                val hotseatHitView = workspace.findViewInCellLayout(hotseat, tempCoords[0], tempCoords[1])
+                if (hotseatHitView is FolderIcon && hotseatHitView.isCoverModeEnabled()) {
+                    return hotseatHitView
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+        return null
     }
 
     private fun canInterceptTouch(ev: MotionEvent): Boolean {
@@ -104,10 +135,15 @@ class VerticalSwipeTouchController(
         if (velocity.absoluteValue > TRIGGER_VELOCITY) {
             triggered = true
             if (velocity < 0) {
-                if (pointerCount == 1) {
-                    gestureController.onSwipeUp()
-                } else if (pointerCount == 2) {
-                    gestureController.onTwoFingerSwipeUp()
+                val folder = startedOnCoveredFolder
+                if (folder != null && pointerCount == 1) {
+                    folder.folder.animateOpen()
+                } else {
+                    if (pointerCount == 1) {
+                        gestureController.onSwipeUp()
+                    } else if (pointerCount == 2) {
+                        gestureController.onTwoFingerSwipeUp()
+                    }
                 }
             } else {
                 if (pointerCount == 1) {
@@ -122,11 +158,12 @@ class VerticalSwipeTouchController(
 
     override fun onDragEnd(velocity: PointF) {
         detector.finishedScrolling()
+        startedOnCoveredFolder = null
     }
 
     private fun getSwipeDirection(): Int {
         var directions = 0
-        if (overrideSwipeUp || overrideTwoFingerSwipeUp) {
+        if (overrideSwipeUp || overrideTwoFingerSwipeUp || startedOnCoveredFolder != null) {
             directions = directions or BothAxesSwipeDetector.DIRECTION_UP
         }
         if (overrideSwipeDown || overrideTwoFingerSwipeDown) {

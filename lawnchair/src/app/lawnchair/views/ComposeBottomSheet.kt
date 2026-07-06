@@ -27,10 +27,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import app.lawnchair.theme.color.tokens.ColorTokens
 import app.lawnchair.ui.theme.LawnchairTheme
@@ -118,10 +122,10 @@ class ComposeBottomSheet<T>(context: Context) : AbstractSlideInView<T>(context, 
     }
 
     override fun setTranslationShift(translationShift: Float) {
-        mTranslationShift = translationShift
+        mTranslationShift = if (translationShift.isFinite()) translationShift else 0f
         updateContentShift()
         if (mColorScrim != null) {
-            mColorScrim.alpha = 1 - mTranslationShift
+            mColorScrim.alpha = (1 - mTranslationShift).coerceIn(0f, 1f)
         }
     }
 
@@ -131,7 +135,9 @@ class ComposeBottomSheet<T>(context: Context) : AbstractSlideInView<T>(context, 
     }
 
     private fun updateContentShift() {
-        mContent.translationY = mTranslationShift * mContent.height + imeShift
+        val shift = if (mTranslationShift.isFinite()) mTranslationShift else 0f
+        val ime = if (imeShift.isFinite()) imeShift else 0f
+        mContent.translationY = shift * mContent.height + ime
     }
 
     override fun addHintCloseAnim(
@@ -140,7 +146,7 @@ class ComposeBottomSheet<T>(context: Context) : AbstractSlideInView<T>(context, 
         target: PendingAnimation,
     ) {
         super.addHintCloseAnim(distanceToMove, interpolator, target)
-        hintCloseDistance = distanceToMove
+        hintCloseDistance = if (distanceToMove.isFinite()) distanceToMove else 0f
         target.setFloat(this, HINT_CLOSE_PROGRESS, 1f, interpolator)
     }
 
@@ -203,11 +209,26 @@ class ComposeBottomSheet<T>(context: Context) : AbstractSlideInView<T>(context, 
         contentPaddings: PaddingValues = PaddingValues(all = 0.dp),
         content: @Composable ComposeBottomSheet<T>.() -> Unit,
     ) {
+        val safeContentPaddings = remember(contentPaddings) {
+            object : PaddingValues {
+                override fun calculateLeftPadding(layoutDirection: LayoutDirection): Dp =
+                    contentPaddings.calculateLeftPadding(layoutDirection).let { if (it.value.isFinite()) it else 0.dp }
+
+                override fun calculateTopPadding(): Dp =
+                    contentPaddings.calculateTopPadding().let { if (it.value.isFinite()) it else 0.dp }
+
+                override fun calculateRightPadding(layoutDirection: LayoutDirection): Dp =
+                    contentPaddings.calculateRightPadding(layoutDirection).let { if (it.value.isFinite()) it else 0.dp }
+
+                override fun calculateBottomPadding(): Dp =
+                    contentPaddings.calculateBottomPadding().let { if (it.value.isFinite()) it else 0.dp }
+            }
+        }
         val imePaddings = WindowInsets.ime
             .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
             .asPaddingValues()
 
-        val translation = imePaddings - contentPaddings
+        val translation = imePaddings - safeContentPaddings
         setImeShift(with(LocalDensity.current) { -translation.calculateBottomPadding().toPx() })
 
         SystemUi(setStatusBar = false)
@@ -224,11 +245,16 @@ class ComposeBottomSheet<T>(context: Context) : AbstractSlideInView<T>(context, 
             ) {
                 Box(
                     modifier = Modifier
-                        .padding(contentPaddings)
+                        .padding(safeContentPaddings)
                         .graphicsLayer(
                             alpha = 1f - (hintCloseProgress * 0.5f),
                             translationY = hintCloseProgress * -hintCloseDistance,
-                        ),
+                        )
+                        .drawWithContent {
+                            if (size.width.isFinite() && size.height.isFinite() && size.width >= 0f && size.height >= 0f) {
+                                drawContent()
+                            }
+                        },
                 ) {
                     content(this@ComposeBottomSheet)
                 }

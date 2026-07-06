@@ -24,6 +24,8 @@ import com.android.launcher3.model.data.FolderInfo
 import com.android.launcher3.model.data.ItemInfo
 import com.android.launcher3.views.ActivityContext
 import com.patrykmichalik.opto.core.onEach
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import java.util.function.Predicate
 
 @Suppress("SYNTHETIC_PROPERTY_WITHOUT_JAVA_ORIGIN")
@@ -68,12 +70,14 @@ class LawnchairAlphabeticalAppsList<T>(
     }
 
     private fun observeFolders() {
-        viewModel.folders.observeOnce(context as LifecycleOwner) { folders ->
-            folderList = folders
-                .sortedBy { folderOrder.indexOf(it.id) }
-                .toMutableList()
-            updateAdapterItems()
-        }
+        viewModel.folders
+            .onEach { folders ->
+                folderList = folders
+                    .sortedBy { folderOrder.indexOf(it.id) }
+                    .toMutableList()
+                updateAdapterItems()
+            }
+            .launchIn(context.launcher.lifecycleScope)
     }
 
     override fun updateItemFilter(itemFilter: Predicate<ItemInfo>?) {
@@ -105,6 +109,7 @@ class LawnchairAlphabeticalAppsList<T>(
                     val folderInfo = FolderInfo().apply {
                         title = category
                         apps.forEach { add(it) }
+                        container = ItemInfo.NO_ID
                     }
                     mAdapterItems.add(AdapterItem.asFolder(folderInfo))
                 }
@@ -115,6 +120,8 @@ class LawnchairAlphabeticalAppsList<T>(
                 if (folder.getContents().size > 1) {
                     val folderInfo = FolderInfo()
                     folderInfo.title = folder.title
+                    folderInfo.setSyncId(folder.id)
+                    folderInfo.container = ItemInfo.NO_ID
                     mAdapterItems.add(AdapterItem.asFolder(folderInfo))
                     folder.getContents().forEach { app ->
                         (appsStore.getApp(app.componentKey) as? AppInfo)?.let {

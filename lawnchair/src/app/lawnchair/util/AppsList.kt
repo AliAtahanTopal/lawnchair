@@ -65,7 +65,7 @@ fun appsState(
 
 class App(context: Context, private val info: LauncherActivityInfo) {
 
-    val label get() = info.label.toString()
+    val label = info.label.toString()
     val icon: Bitmap
     val key = ComponentKey(info.componentName, info.user)
 

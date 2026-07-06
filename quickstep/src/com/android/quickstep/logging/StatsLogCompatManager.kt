@@ -156,7 +156,7 @@ class StatsLogCompatManager private constructor(context: Context) : StatsLogMana
 
         override fun withDstState(dstState: Int) = apply { mDstState = dstState }
 
-        override fun withContainerInfo(containerInfo: ContainerInfo?) = apply {
+        override fun withContainerInfo(containerInfo: LauncherAtom.ContainerInfo): StatsLogger = apply {
             require(mItemInfo === DEFAULT_ITEM_INFO) {
                 "ItemInfo and ContainerInfo are mutual exclusive; cannot log both."
             }

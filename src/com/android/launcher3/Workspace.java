@@ -137,6 +137,7 @@ import com.android.systemui.plugins.shared.LauncherOverlayManager.LauncherOverla
 import com.android.systemui.plugins.shared.LauncherOverlayManager.LauncherOverlayTouchProxy;
 
 import com.google.android.msdl.data.model.MSDLToken;
+import com.patrykmichalik.opto.core.PreferenceExtensionsKt;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -1186,6 +1187,15 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
      */
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
+        if (ev.getAction() == MotionEvent.ACTION_UP) {
+            View touchedView = findViewAtPosition(ev.getX(), ev.getY());
+            Boolean iconSwipeGestures = PreferenceExtensionsKt.firstBlocking(mPreferenceManager2.getIconSwipeGestures());
+
+            if (iconSwipeGestures && touchedView instanceof ShortcutAndWidgetContainer container) {
+                container.onTouchEvent(ev);
+                return false;
+            }
+        }
         if (shouldSkipPagedViewInterceptionForIconSwipe(ev)) {
             return false;
         } // Lawnchair: Icon swipe gesture feature
@@ -1200,7 +1210,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         switch (ev.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 mDisallowPagedViewInterceptForIconSwipe = isTouchOnIconWithSwipeGesture(
-                        ev.getX(), ev.getY(), false);
+                    ev.getX(), ev.getY(), false);
                 if (mDisallowPagedViewInterceptForIconSwipe) {
                     resetTouchState();
                     return true;
@@ -1238,7 +1248,20 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         return hasConfiguredIconSwipeGesture;
     }
 
-    // Lawnchair: Icon swipe gesture feature
+    public View findViewAtPosition(float x, float y) {
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            if (child instanceof CellLayout) {
+                CellLayout cellLayout = (CellLayout) child;
+                View foundView = findViewInCellLayout(cellLayout, x - child.getLeft(), y - child.getTop());
+                if (foundView != null) {
+                    return foundView;
+                }
+            }
+        }
+        return null;
+    }
+
     private BubbleTextView findIconAtPosition(float x, float y) {
         for (int i = getChildCount() - 1; i >= 0; i--) {
             View child = getChildAt(i);
@@ -1258,6 +1281,19 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         return null;
     }
 
+    public View findViewInCellLayout(CellLayout cellLayout, float x, float y) {
+        ShortcutAndWidgetContainer container = cellLayout.getShortcutsAndWidgets();
+        if (container == null) return null;
+        final int count = container.getChildCount();
+        for (int i = count - 1; i >= 0; i--) {
+            View child = container.getChildAt(i);
+            if (child.getVisibility() == VISIBLE && isPointInsideView(x - container.getLeft(), y - container.getTop(), child)) {
+                return child;
+            }
+        }
+        return null;
+    }
+    
     // Lawnchair: Icon swipe gesture feature
     private BubbleTextView findIconInCellLayout(CellLayout cellLayout, float x, float y) {
         ShortcutAndWidgetContainer container = cellLayout.getShortcutsAndWidgets();
@@ -1279,6 +1315,10 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         return null;
     }
 
+    private boolean isPointInsideView(float x, float y, View view) {
+        return x >= view.getLeft() && x <= view.getRight() &&
+                y >= view.getTop() && y <= view.getBottom();
+    }
 
     /**
      * Needed here because launcher has a fullscreen exclusion rect and doesn't pilfer the pointers.
@@ -1945,6 +1985,11 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             }
             if (btv.isDisplaySearchResult()) {
                 dragOptions.preDragEndScale = (float) mAllAppsIconSize / btv.getIconSize();
+            }
+        } else if (child instanceof FolderIcon) {
+            FolderIcon fi = (FolderIcon) child;
+            if (!dragOptions.isAccessibleDrag) {
+                dragOptions.preDragCondition = fi.startLongPressAction();
             }
         }
 
@@ -3290,6 +3335,9 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     public void setFinalTransitionTransform() {
         if (isSwitchingState()) {
             mCurrentScale = getScaleX();
+            if (Float.isNaN(mCurrentScale) || Float.isInfinite(mCurrentScale)) {
+                mCurrentScale = 1.0f;
+            }
             setScaleX(mStateTransitionAnimation.getFinalScale());
             setScaleY(mStateTransitionAnimation.getFinalScale());
         }

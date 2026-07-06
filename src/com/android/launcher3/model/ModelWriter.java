@@ -40,8 +40,10 @@ import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.logging.FileLog;
 import com.android.launcher3.model.BgDataModel.Callbacks;
 import com.android.launcher3.model.data.CollectionInfo;
+import com.android.launcher3.model.data.FolderInfo;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.model.data.LauncherAppWidgetInfo;
+import com.android.launcher3.model.data.WorkspaceItemFactory;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
 import com.android.launcher3.provider.LauncherDbUtils.SQLiteTransaction;
 import com.android.launcher3.util.ContentWriter;
@@ -372,8 +374,35 @@ public class ModelWriter {
      * Add provided items to the database. Also assigns an ID to each item.
      */
     public void addItemsToDatabase(final List<ItemInfo> items) {
-        items.forEach(info -> info.id = mModel.getModelDbController().generateNewItemId());
-        notifyOtherCallbacks(c -> c.bindItemsAdded(items));
+        List<ItemInfo> allItemsToAdd = new ArrayList<>();
+        for (ItemInfo item : items) {
+            item.id = mModel.getModelDbController().generateNewItemId();
+            allItemsToAdd.add(item);
+            if (item instanceof FolderInfo folder) {
+                List<ItemInfo> contents = new ArrayList<>(folder.getContents());
+                folder.getContents().clear();
+                for (int i = 0; i < contents.size(); i++) {
+                    ItemInfo content = contents.get(i);
+                    WorkspaceItemInfo workspaceItem;
+                    if (content instanceof WorkspaceItemFactory factory) {
+                        workspaceItem = factory.makeWorkspaceItem(mContext);
+                    } else if (content instanceof WorkspaceItemInfo wii) {
+                        workspaceItem = wii.clone();
+                    } else {
+                        continue;
+                    }
+                    workspaceItem.id = mModel.getModelDbController().generateNewItemId();
+                    workspaceItem.container = item.id;
+                    workspaceItem.rank = i;
+                    workspaceItem.screenId = 0;
+                    workspaceItem.cellX = 0;
+                    workspaceItem.cellY = 0;
+                    folder.add(workspaceItem);
+                    allItemsToAdd.add(workspaceItem);
+                }
+            }
+        }
+        notifyOtherCallbacks(c -> c.bindItemsAdded(allItemsToAdd));
 
         ModelVerifier verifier = new ModelVerifier();
         final StackTraceElement[] stackTrace = new Throwable().getStackTrace();
@@ -381,7 +410,7 @@ public class ModelWriter {
             // Write the item on background thread, as some properties might have been
             // updated in
             // the background.
-            for (ItemInfo item: items) {
+            for (ItemInfo item : allItemsToAdd) {
                 final ContentWriter writer = new ContentWriter(mContext);
                 item.onAddToDatabase(writer);
                 writer.put(Favorites._ID, item.id);
@@ -389,10 +418,10 @@ public class ModelWriter {
             }
 
             synchronized (mBgDataModel) {
-                for (ItemInfo item: items) {
+                for (ItemInfo item : allItemsToAdd) {
                     checkItemInfoLocked(item.id, item, stackTrace);
                 }
-                mBgDataModel.addItems(mContext, items, mOwner);
+                mBgDataModel.addItems(mContext, allItemsToAdd, mOwner);
                 verifier.verifyModel();
             }
         }).executeOnModelThread();

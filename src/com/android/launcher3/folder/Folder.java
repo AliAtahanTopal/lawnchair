@@ -48,6 +48,7 @@ import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import com.android.launcher3.LauncherSettings;
 import android.hardware.input.InputManager;
 import android.os.Looper;
 import android.text.InputType;
@@ -72,6 +73,7 @@ import android.view.animation.AnimationUtils;
 import android.view.inputmethod.EditorInfo;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import app.lawnchair.data.folder.service.FolderService;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
@@ -374,6 +376,8 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
             mKeyboardInsetAnimationCallback = new KeyboardInsetAnimationCallback(this);
             setWindowInsetsAnimationCallback(mKeyboardInsetAnimationCallback);
         }
+
+        mFooter.setGravity(Gravity.CENTER_VERTICAL);
         
         if (enableLauncherVisualRefresh()) {
             mLeftArrow = findViewById(R.id.left_indicator_arrow);
@@ -527,7 +531,9 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
     }
 
     public boolean isInAppDrawer() {
-        return mInfo.container == ItemInfo.NO_ID;
+        return mInfo.container == ItemInfo.NO_ID
+                || mInfo.container == LauncherSettings.Favorites.CONTAINER_ALL_APPS
+                || mInfo.container == LauncherSettings.Favorites.CONTAINER_ALL_APPS_PREDICTION;
     }
 
     @Override
@@ -555,6 +561,9 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
         }
         mInfo.setTitle(newTitle, mActivityContext.getModelWriter());
         mFolderIcon.onTitleChanged(newTitle);
+        if (mInfo.getSyncId() != 0) {
+            FolderService.INSTANCE.get(getContext()).syncFolder(mInfo);
+        }
 
         if (TextUtils.isEmpty(mInfo.title)) {
             mFolderName.setHint(R.string.folder_hint_text);
@@ -1371,6 +1380,9 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
                     .getSuggestedFolderName(mInfo.getAppContents(),
                             folderNameInfos -> mInfo.suggestedFolderNames = folderNameInfos);
         }
+        if (!isBind && mInfo.getSyncId() != 0) {
+            FolderService.INSTANCE.get(getContext()).syncFolder(mInfo);
+        }
     }
 
     public void notifyDrop() {
@@ -1615,6 +1627,11 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
                 // correctly.
                 float scaleX = getScaleX();
                 float scaleY = getScaleY();
+                if (Float.isNaN(scaleX) || Float.isInfinite(scaleX)
+                        || Float.isNaN(scaleY) || Float.isInfinite(scaleY)) {
+                    scaleX = 1.0f;
+                    scaleY = 1.0f;
+                }
                 setScaleX(1.0f);
                 setScaleY(1.0f);
                 launcher.getDragLayer().animateViewIntoPosition(d.dragView, currentDragView, null);
@@ -1686,6 +1703,16 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
             throw new RuntimeException("tried to add an illegal type into a folder");
         }
 
+        // Check for duplicates
+        com.android.launcher3.util.ComponentKey key = item.getComponentKey();
+        if (key != null) {
+            for (ItemInfo existing : mInfo.getContents()) {
+                if (key.equals(existing.getComponentKey())) {
+                    return;
+                }
+            }
+        }
+
         rank = Utilities.boundToRange(rank, 0, mInfo.getContents().size());
         mInfo.getContents().add(rank, item);
 
@@ -1714,6 +1741,9 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
         List<ItemInfo> itemArray = Arrays.asList(items);
         if (mInfo.getContents().removeAll(itemArray)) {
             mActivityContext.getModelWriter().notifyItemModified(mInfo);
+            if (mInfo.getSyncId() != 0) {
+                FolderService.INSTANCE.get(getContext()).syncFolder(mInfo);
+            }
         }
 
         if (!mSuppressContentUpdate) {

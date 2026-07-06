@@ -169,31 +169,39 @@ class TaskThumbnailView : FrameLayout, ViewPool.Reusable {
     }
 
     override fun setScaleX(scaleX: Float) {
-        if (enableRefactorTaskContentView()) {
+        if (enableRefactorTaskContentView() || scaleX.isNaN() || scaleX.isInfinite()) {
             return
         }
         super.setScaleX(scaleX)
         // Splash icon should ignore scale on TTV
-        splashIcon.scaleX = 1 / scaleX
+        if (scaleX != 0f) {
+            splashIcon.scaleX = 1 / scaleX
+        }
     }
 
     override fun setScaleY(scaleY: Float) {
-        if (enableRefactorTaskContentView()) {
+        if (enableRefactorTaskContentView() || scaleY.isNaN() || scaleY.isInfinite()) {
             return
         }
         super.setScaleY(scaleY)
         // Splash icon should ignore scale on TTV
-        splashIcon.scaleY = 1 / scaleY
+        if (scaleY != 0f) {
+            splashIcon.scaleY = 1 / scaleY
+        }
     }
 
     fun parentScaleXUpdated(scaleX: Float) {
         // Splash icon should ignore scale on TTV
-        splashIcon.scaleX = 1 / scaleX
+        if (scaleX != 0f && !scaleX.isNaN() && !scaleX.isInfinite()) {
+            splashIcon.scaleX = 1 / scaleX
+        }
     }
 
     fun parentScaleYUpdated(scaleY: Float) {
         // Splash icon should ignore scale on TTV
-        splashIcon.scaleY = 1 / scaleY
+        if (scaleY != 0f && !scaleY.isNaN() && !scaleY.isInfinite()) {
+            splashIcon.scaleY = 1 / scaleY
+        }
     }
 
     private fun resetViews() {

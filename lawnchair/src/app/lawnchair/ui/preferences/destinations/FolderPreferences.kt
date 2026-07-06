@@ -80,6 +80,15 @@ fun FolderPreferences(
                     showAsPercentage = true,
                 )
             }
+            Item {
+                SliderPreference(
+                    label = stringResource(id = R.string.folder_preview_icon_size_label),
+                    adapter = prefs2.folderPreviewIconSizeFactor.getAdapter(),
+                    step = 0.1F,
+                    valueRange = 0.5F..1.5F,
+                    showAsPercentage = true,
+                )
+            }
         }
         PreferenceGroup(heading = stringResource(id = R.string.grid)) {
             Item {

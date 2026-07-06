@@ -16,10 +16,13 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface FolderDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertFolder(folder: FolderInfoEntity)
+    suspend fun insertFolder(folder: FolderInfoEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFolderItems(items: List<FolderItemEntity>)
+
+    @Query("SELECT * FROM Folders WHERE id = :folderId")
+    suspend fun getFolder(folderId: Int): FolderInfoEntity?
 
     @Query("SELECT * FROM Folders WHERE id = :folderId")
     @Transaction

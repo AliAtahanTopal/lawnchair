@@ -276,7 +276,9 @@ private inline fun DrawScope.withLayer(
     paint: Paint,
     drawBlock: DrawScope.() -> Unit,
 ) = drawIntoCanvas { canvas ->
-    canvas.saveLayer(size.toRect(), paint)
-    drawBlock()
-    canvas.restore()
+    if (size.width.isFinite() && size.height.isFinite()) {
+        canvas.saveLayer(size.toRect(), paint)
+        drawBlock()
+        canvas.restore()
+    }
 }
