@@ -375,6 +375,11 @@ class PreferenceManager2 @Inject constructor(
         defaultValue = context.resources.getBoolean(R.bool.config_default_lock_home_screen),
     )
 
+    val iconSwipeGestures = preference(
+        key = booleanPreferencesKey(name = "icon_swipe_gestures"),
+        defaultValue = true,
+    )
+
     val defaultHomePage = preference(
         key = intPreferencesKey(name = "default_home_page"),
         defaultValue = Workspace.DEFAULT_PAGE,
