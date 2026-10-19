@@ -342,16 +342,11 @@ public class FolderPagedView extends PagedView<PageIndicatorDots> implements Cli
             icon = AppPairIcon.inflateIcon(R.layout.folder_app_pair, ActivityContext.lookupContext(
                     getContext()), null , api, BubbleTextView.DISPLAY_FOLDER);
         } else {
-            if (mFolder.isInAppDrawer()) {
-                icon = mViewCache.getView(R.layout.all_apps_folder_application, getContext(), null);
-                ((BubbleTextView) icon).applyFromItemInfoWithIcon((ItemInfoWithIcon) item);
+            icon = mViewCache.getView(R.layout.folder_application, getContext(), null);
+            if (item instanceof WorkspaceItemInfo workspaceItemInfo) {
+                ((BubbleTextView) icon).applyFromWorkspaceItem(workspaceItemInfo);
             } else {
-                icon = mViewCache.getView(R.layout.folder_application, getContext(), null);
-                if (item instanceof WorkspaceItemInfo workspaceItemInfo) {
-                    ((BubbleTextView) icon).applyFromWorkspaceItem(workspaceItemInfo);
-                } else {
-                    ((BubbleTextView) icon).applyFromItemInfoWithIcon((ItemInfoWithIcon) item);
-                }
+                ((BubbleTextView) icon).applyFromItemInfoWithIcon((ItemInfoWithIcon) item);
             }
         }
 
@@ -385,12 +380,7 @@ public class FolderPagedView extends PagedView<PageIndicatorDots> implements Cli
     private CellLayout createAndAddNewPage() {
         DeviceProfile grid = mFolder.mActivityContext.getDeviceProfile();
         CellLayout page = mViewCache.getView(R.layout.folder_page, getContext(), this);
-        // Lawnchair: Find the correct folder size depending on which parent owned them
-        if (mFolder.isInAppDrawer()) {
-            page.setCellDimensions(grid.getAllAppsProfile().getCellWidthPx(), grid.getAllAppsProfile().getCellHeightPx());
-        } else {
-            page.setCellDimensions(grid.folderCellWidthPx, grid.folderCellHeightPx);
-        }
+        page.setCellDimensions(grid.folderCellWidthPx, grid.folderCellHeightPx);
         page.getShortcutsAndWidgets().setMotionEventSplittingEnabled(false);
         page.setInvertIfRtl(true);
         page.setGridSize(mGridCountX, mGridCountY);

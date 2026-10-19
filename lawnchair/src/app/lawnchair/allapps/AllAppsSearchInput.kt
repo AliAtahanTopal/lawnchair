@@ -170,6 +170,7 @@ class AllAppsSearchInput(context: Context, attrs: AttributeSet?) :
 
                 val actions = QsbActions(
                     onQsbClick = {
+                        input.isFocusableInTouchMode = true
                         input.requestFocus()
                         input.showKeyboard()
                     },
@@ -234,6 +235,7 @@ class AllAppsSearchInput(context: Context, attrs: AttributeSet?) :
                 // Sometimes the user has to click the input bar one more time
                 // for the keyboard to show.
             } else {
+                input.isFocusableInTouchMode = false
                 setBackgroundVisibility(true, 1f)
                 animateHintVisibility(false)
                 if (prefs.searchResulRecentSuggestion.get()) {
@@ -407,6 +409,7 @@ class AllAppsSearchInput(context: Context, attrs: AttributeSet?) :
             if (isKeyNotWhitespace) {
                 val gotKey = TextKeyListener.getInstance().onKeyDown(input, searchQueryBuilder, event.keyCode, event)
                 if (gotKey && searchQueryBuilder.isNotEmpty()) {
+                    input.isFocusableInTouchMode = true
                     searchBarController.focusSearchField()
                 }
             }

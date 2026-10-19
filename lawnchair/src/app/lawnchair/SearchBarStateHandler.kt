@@ -146,6 +146,7 @@ class SearchBarStateHandler(private val launcher: LawnchairLauncher) : StateMana
 
     private fun showKeyboard() {
         val editText = launcher.appsView.searchUiManager.editText ?: return
+        editText.isFocusableInTouchMode = true
         editText.showKeyboard()
     }
 }

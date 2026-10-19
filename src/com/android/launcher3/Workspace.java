@@ -515,12 +515,17 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         }
 
         if (mDragInfo != null && mDragInfo.cell != null) {
-            CellLayout layout = (CellLayout) (mDragInfo.cell instanceof LauncherAppWidgetHostView
-                    // LC: https://github.com/LawnchairLauncher/lawnchair/issues/3143
-                    && dragObject.dragView.getContentViewParent() != null
-                    ? dragObject.dragView.getContentViewParent().getParent()
-                    : mDragInfo.cell.getParent().getParent());
-            layout.markCellsAsUnoccupiedForView(mDragInfo.cell);
+            CellLayout layout = getParentCellLayoutForView(mDragInfo.cell);
+            if (layout == null && mDragInfo.cell instanceof LauncherAppWidgetHostView
+                    && dragObject.dragView.getContentViewParent() != null) {
+                View parent = (View) dragObject.dragView.getContentViewParent().getParent();
+                if (parent instanceof CellLayout) {
+                    layout = (CellLayout) parent;
+                }
+            }
+            if (layout != null) {
+                layout.markCellsAsUnoccupiedForView(mDragInfo.cell);
+            }
         }
 
         updateChildrenLayersEnabled();
@@ -2417,8 +2422,10 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                     CellLayoutLayoutParams lp = (CellLayoutLayoutParams) cell.getLayoutParams();
                     mTargetCell[0] = lp.getCellX();
                     mTargetCell[1] = lp.getCellY();
-                    CellLayout layout = (CellLayout) cell.getParent().getParent();
-                    layout.markCellsAsOccupiedForView(cell);
+                    CellLayout layout = cell.getParent() != null ? (CellLayout) cell.getParent().getParent() : null;
+                    if (layout != null) {
+                        layout.markCellsAsOccupiedForView(cell);
+                    }
                 }
             } else {
                 // When drag is cancelled, reattach content view back to its original parent.
@@ -2435,9 +2442,9 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                 }
             }
 
-            final CellLayout parent = (CellLayout) cell.getParent().getParent();
+            final CellLayout parent = getParentCellLayoutForView(cell);
             if (d.dragView.hasDrawn()) {
-                if (droppedOnOriginalCellDuringTransition) {
+                if (parent != null && droppedOnOriginalCellDuringTransition) {
                     // Animate the item to its original position, while simultaneously exiting
                     // spring-loaded mode so the page meets the icon where it was picked up.
                     final RunnableList callbackList = new RunnableList();
@@ -2462,21 +2469,25 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
                 final ItemInfo info = (ItemInfo) cell.getTag();
                 boolean isWidget = info.itemType == LauncherSettings.Favorites.ITEM_TYPE_APPWIDGET
                         || info.itemType == LauncherSettings.Favorites.ITEM_TYPE_CUSTOM_APPWIDGET;
-                if (isWidget && dropTargetLayout != null) {
+                if (isWidget && dropTargetLayout != null && parent != null) {
                     // animate widget to a valid place
                     int animationType = resizeOnDrop ? ANIMATE_INTO_POSITION_AND_RESIZE :
                             ANIMATE_INTO_POSITION_AND_DISAPPEAR;
                     animateWidgetDrop(info, parent, d.dragView, null, animationType, cell, false);
-                } else {
+                } else if (cell.getParent() != null) {
                     int duration = snappedToNewPage ? ADJACENT_SCREEN_DROP_DURATION : -1;
                     mLauncher.getDragLayer().animateViewIntoPosition(d.dragView, cell, duration,
                             this);
+                } else {
+                    d.dragView.remove();
                 }
             } else {
                 d.deferDragViewCleanupPostAnimation = false;
                 cell.setVisibility(VISIBLE);
             }
-            parent.onDropChild(cell);
+            if (parent != null) {
+                parent.onDropChild(cell);
+            }
 
             if (!mLauncher.isInState(EDIT_MODE)) {
                 mLauncher.getStateManager().goToState(NORMAL, SPRING_LOADED_EXIT_DELAY,
@@ -3190,16 +3201,20 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
 
             addInScreen(view, container, screenId, mTargetCell[0], mTargetCell[1],
                     info.spanX, info.spanY);
-            cellLayout.onDropChild(view);
-            cellLayout.getShortcutsAndWidgets().measureChild(view);
+            if (view.getParent() != null) {
+                cellLayout.onDropChild(view);
+                cellLayout.getShortcutsAndWidgets().measureChild(view);
 
-            if (d.dragView != null) {
-                // We wrap the animation call in the temporary set and reset of the current
-                // cellLayout to its final transform -- this means we animate the drag view to
-                // the correct final location.
-                setFinalTransitionTransform();
-                mLauncher.getDragLayer().animateViewIntoPosition(d.dragView, view, this);
-                resetTransitionTransform();
+                if (d.dragView != null) {
+                    // We wrap the animation call in the temporary set and reset of the current
+                    // cellLayout to its final transform -- this means we animate the drag view to
+                    // the correct final location.
+                    setFinalTransitionTransform();
+                    mLauncher.getDragLayer().animateViewIntoPosition(d.dragView, view, this);
+                    resetTransitionTransform();
+                }
+            } else if (d.dragView != null) {
+                d.dragView.remove();
             }
             mStatsLogManager.logger().withItemInfo(d.dragInfo).withInstanceId(d.logInstanceId)
                     .log(LauncherEvent.LAUNCHER_ITEM_DROP_COMPLETED);

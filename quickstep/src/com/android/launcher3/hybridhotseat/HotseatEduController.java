@@ -100,7 +100,7 @@ public class HotseatEduController {
         for (int i = 0; i < hotseatItemsNum; i++) {
             int x = isPortrait ? i : 0;
             int y = isPortrait ? 0 : hotseatItemsNum - i - 1;
-            View child = mHotseat.getChildAt(x, y);
+            View child = mHotseat.getShortcutsAndWidgets().getChildAt(x, y);
             if (child == null || child.getTag() == null) continue;
             ItemInfo tag = (ItemInfo) child.getTag();
             if (tag.container == LauncherSettings.Favorites.CONTAINER_HOTSEAT_PREDICTION) continue;
@@ -112,7 +112,7 @@ public class HotseatEduController {
     }
 
     void moveHotseatItems() {
-        mHotseat.removeAllViewsInLayout();
+        mHotseat.getShortcutsAndWidgets().removeAllViewsInLayout();
         if (!mNewItems.isEmpty()) {
             mLauncher.bindItemsAdded(mNewItems);
         }

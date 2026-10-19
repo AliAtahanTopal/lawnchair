@@ -211,7 +211,7 @@ public class HotseatPredictionController implements DragController.DragListener,
 
         mPauseFlags |= FLAG_FILL_IN_PROGRESS;
         for (int rank = 0; rank < mHotSeatItemsCount; rank++) {
-            View child = mHotseat.getChildAt(
+            View child = mHotseat.getShortcutsAndWidgets().getChildAt(
                     mHotseat.getCellXFromOrder(rank),
                     mHotseat.getCellYFromOrder(rank));
 
@@ -299,7 +299,7 @@ public class HotseatPredictionController implements DragController.DragListener,
      * Pins a predicted app icon into place.
      */
     public void pinPrediction(ItemInfo info) {
-        PredictedAppIcon icon = (PredictedAppIcon) mHotseat.getChildAt(
+        PredictedAppIcon icon = (PredictedAppIcon) mHotseat.getShortcutsAndWidgets().getChildAt(
                 mHotseat.getCellXFromOrder(info.rank),
                 mHotseat.getCellYFromOrder(info.rank));
         if (icon == null) {
@@ -481,7 +481,7 @@ public class HotseatPredictionController implements DragController.DragListener,
      * Called when user completes adding item requiring a config activity to the hotseat
      */
     public void onDeferredDrop(int cellX, int cellY) {
-        View child = mHotseat.getChildAt(cellX, cellY);
+        View child = mHotseat.getShortcutsAndWidgets().getChildAt(cellX, cellY);
         if (child instanceof PredictedAppIcon) {
             removeIconWithoutNotify((PredictedAppIcon) child);
         }

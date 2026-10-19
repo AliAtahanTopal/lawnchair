@@ -124,6 +124,11 @@ class PreferenceManager2 @Inject constructor(
         defaultValue = context.resources.getBoolean(R.bool.config_default_dark_status_bar),
     )
 
+    val autoWallDarkStatusBar = preference(
+        key = stringPreferencesKey(name = "auto_wall_dark_status_bar"),
+        defaultValue = "",
+    )
+
     val hotseatMode = preference(
         key = stringPreferencesKey("hotseat_mode"),
         defaultValue = HotseatMode.fromString(context.getString(R.string.config_default_hotseat_mode)),

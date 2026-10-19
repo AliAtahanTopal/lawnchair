@@ -218,37 +218,35 @@ public class QuickstepModelDelegate extends ModelDelegate {
         }
 
         try {
-            if (mStatsManager != null) {
-                mStatsManager.setPullAtomCallback(
-                        SysUiStatsLog.LAUNCHER_LAYOUT_SNAPSHOT,
-                        null /* PullAtomMetadata */,
-                        MODEL_EXECUTOR,
-                        (i, eventList) -> {
-                            InstanceId instanceId = new InstanceIdSequence().newInstanceId();
-                            WorkspaceData itemsIdMap;
-                            synchronized (mDataModel) {
-                                itemsIdMap = mDataModel.itemsIdMap.copy();
-                            }
-
-                            for (ItemInfo info : itemsIdMap) {
-                                CollectionInfo parent = getContainer(info, itemsIdMap);
-                                LauncherAtom.ItemInfo itemInfo = info.buildProto(parent, mContext);
-                                Log.d(TAG, itemInfo.toString());
-                                StatsEvent statsEvent = StatsLogCompatManager.buildStatsEvent(itemInfo,
-                                        instanceId);
-                                eventList.add(statsEvent);
-                            }
-                            Log.d(TAG,
-                                    String.format(
-                                            "Successfully logged %d workspace items with instanceId=%d",
-                                            eventList.size(), instanceId.getId()));
-                            additionalSnapshotEvents(instanceId);
-                            SettingsChangeLogger.INSTANCE.get(mContext).logSnapshot(instanceId);
-                            return StatsManager.PULL_SUCCESS;
+            mStatsManager.setPullAtomCallback(
+                    SysUiStatsLog.LAUNCHER_LAYOUT_SNAPSHOT,
+                    null /* PullAtomMetadata */,
+                    MODEL_EXECUTOR,
+                    (i, eventList) -> {
+                        InstanceId instanceId = new InstanceIdSequence().newInstanceId();
+                        WorkspaceData itemsIdMap;
+                        synchronized (mDataModel) {
+                            itemsIdMap = mDataModel.itemsIdMap.copy();
                         }
-                );
-                Log.d(TAG, "Successfully registered for launcher snapshot logging!");
-            }
+
+                        for (ItemInfo info : itemsIdMap) {
+                            CollectionInfo parent = getContainer(info, itemsIdMap);
+                            LauncherAtom.ItemInfo itemInfo = info.buildProto(parent, mContext);
+                            Log.d(TAG, itemInfo.toString());
+                            StatsEvent statsEvent = StatsLogCompatManager.buildStatsEvent(itemInfo,
+                                    instanceId);
+                            eventList.add(statsEvent);
+                        }
+                        Log.d(TAG,
+                                String.format(
+                                        "Successfully logged %d workspace items with instanceId=%d",
+                                        eventList.size(), instanceId.getId()));
+                        additionalSnapshotEvents(instanceId);
+                        SettingsChangeLogger.INSTANCE.get(mContext).logSnapshot(instanceId);
+                        return StatsManager.PULL_SUCCESS;
+                    }
+            );
+            Log.d(TAG, "Successfully registered for launcher snapshot logging!");
         } catch (Throwable e) {
             Log.e(TAG, "Failed to register launcher snapshot logging callback with StatsManager",
                     e);

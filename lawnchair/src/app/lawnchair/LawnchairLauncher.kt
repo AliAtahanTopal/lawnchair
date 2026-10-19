@@ -18,8 +18,10 @@ package app.lawnchair
 
 import android.animation.AnimatorSet
 import android.app.ActivityOptions
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.os.Bundle
@@ -47,6 +49,7 @@ import app.lawnchair.preferences2.firstCached
 import app.lawnchair.root.RootHelperManager
 import app.lawnchair.root.RootNotAvailableException
 import app.lawnchair.theme.ThemeProvider
+import app.lawnchair.theme.color.ColorOption
 import app.lawnchair.ui.popup.LauncherOptionsPopup
 import app.lawnchair.ui.popup.LawnchairShortcut
 import app.lawnchair.util.getThemedIconPacksInstalled
@@ -84,7 +87,9 @@ import com.android.systemui.plugins.shared.LauncherOverlayManager
 import com.android.systemui.shared.system.QuickStepContract
 import com.kieronquinn.app.smartspacer.sdk.client.SmartspacerClient
 import com.patrykmichalik.opto.core.firstBlocking
+import com.patrykmichalik.opto.core.firstBlocking
 import com.patrykmichalik.opto.core.onEach
+import com.patrykmichalik.opto.core.setBlocking
 import dev.kdrag0n.monet.theme.ColorScheme
 import java.util.stream.Stream
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -151,6 +156,23 @@ class LawnchairLauncher : QuickstepLauncher() {
 
     private lateinit var colorScheme: ColorScheme
     private var hasBackGesture = false
+
+    private val themeUpdateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == "ch.deletescape.lawnchair.ACTION_UPDATE_THEME") {
+                val isDarkIcons = intent.getBooleanExtra("is_dark_icons", false)
+                val accentColor = intent.getIntExtra("accent_color", 0)
+
+                preferenceManager2.autoWallDarkStatusBar.setBlocking(if (isDarkIcons) "true" else "false")
+                if (accentColor != 0) {
+                    preferenceManager2.strokeColorStyle.setBlocking(ColorOption.CustomColor(accentColor))
+                    if (prefs.hotseatQsbStrokeWidth.get() == 0f) {
+                        prefs.hotseatQsbStrokeWidth.set(1f)
+                    }
+                }
+            }
+        }
+    }
 
     val gestureController by unsafeLazy { GestureController(this) }
 
@@ -222,9 +244,18 @@ class LawnchairLauncher : QuickstepLauncher() {
             RoundedCornerEnforcement.sRoundedCornerEnabled = it
         }
         val isWorkspaceDarkText = Themes.getAttrBoolean(this, R.attr.isWorkspaceDarkText)
-        preferenceManager2.darkStatusBar.onEach(launchIn = lifecycleScope) { darkStatusBar ->
-            systemUiController?.updateUiState(UI_STATE_BASE_WINDOW, isWorkspaceDarkText || darkStatusBar)
-        }
+        kotlinx.coroutines.flow.combine(
+            preferenceManager2.darkStatusBar.get(),
+            preferenceManager2.autoWallDarkStatusBar.get()
+        ) { darkStatusBar, autoWall ->
+            when (autoWall) {
+                "true" -> true
+                "false" -> false
+                else -> isWorkspaceDarkText || darkStatusBar
+            }
+        }.onEach { isDark ->
+            systemUiController?.updateUiState(UI_STATE_BASE_WINDOW, isDark)
+        }.launchIn(lifecycleScope)
         preferenceManager2.backPressGestureHandler.onEach(launchIn = lifecycleScope) { handler ->
             hasBackGesture = handler !is GestureHandlerConfig.NoOp
         }
@@ -247,6 +278,13 @@ class LawnchairLauncher : QuickstepLauncher() {
         reloadIconsIfNeeded()
 
         AppDatabase.INSTANCE.get(this).checkpointSync()
+
+        val filter = IntentFilter("ch.deletescape.lawnchair.ACTION_UPDATE_THEME")
+        if (Utilities.ATLEAST_T) {
+            registerReceiver(themeUpdateReceiver, filter, RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(themeUpdateReceiver, filter)
+        }
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -474,6 +512,7 @@ class LawnchairLauncher : QuickstepLauncher() {
 
     override fun onDestroy() {
         super.onDestroy()
+        unregisterReceiver(themeUpdateReceiver)
         // Only actually closes if required, safe to call if not enabled
         SmartspacerClient.close()
     }

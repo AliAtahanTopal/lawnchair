@@ -17,6 +17,7 @@
 package com.android.launcher3.widget;
 
 import static com.android.launcher3.Utilities.ATLEAST_Q;
+import static com.android.launcher3.Utilities.ATLEAST_S;
 
 import android.appwidget.AppWidgetProviderInfo;
 import android.content.Context;
@@ -107,10 +108,21 @@ public class LauncherAppWidgetHostView extends BaseLauncherAppWidgetHostView
 
     @Override
     public void setColorResources(@Nullable SparseIntArray colors) {
-        if (colors == null) {
-            resetColorResources();
+        if (!ATLEAST_S) {
+            return;
+        }
+        if (colors == null || colors.size() == 0) {
+            try {
+                resetColorResources();
+            } catch (Throwable e) {
+                Log.e(TAG, "Failed to reset color resources", e);
+            }
         } else {
-            super.setColorResources(colors);
+            try {
+                super.setColorResources(colors);
+            } catch (Throwable e) {
+                Log.e(TAG, "Failed to set color resources", e);
+            }
         }
     }
 

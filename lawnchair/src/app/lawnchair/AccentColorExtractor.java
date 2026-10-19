@@ -71,11 +71,20 @@ public class AccentColorExtractor extends LocalColorExtractor implements ThemePr
     }
 
     @Override
+    @Nullable
+    public SparseIntArray generateColorsOverride(WallpaperColors colors) {
+        return generateColorsOverride(mThemeProvider.getColorScheme());
+    }
+
+    @Override
     public void applyColorsOverride(Context base, WallpaperColors colors) {
-        RemoteViews.ColorResources res =
-                RemoteViews.ColorResources.create(base, generateColorsOverride(colors));
-        if (res != null) {
-            res.apply(base);
+        SparseIntArray colorsOverride = generateColorsOverride(colors);
+        if (colorsOverride != null && colorsOverride.size() > 0) {
+            RemoteViews.ColorResources res =
+                    RemoteViews.ColorResources.create(base, colorsOverride);
+            if (res != null) {
+                res.apply(base);
+            }
         }
     }
 
@@ -86,7 +95,12 @@ public class AccentColorExtractor extends LocalColorExtractor implements ThemePr
 
     protected void notifyListener() {
         if (mListener != null) {
-            mListener.onColorsChanged(generateColorsOverride(mThemeProvider.getColorScheme()));
+            SparseIntArray colors = generateColorsOverride(mThemeProvider.getColorScheme());
+            if (colors != null && colors.size() > 0) {
+                mListener.onColorsChanged(colors);
+            } else {
+                mListener.onColorsChanged(null);
+            }
         }
     }
 

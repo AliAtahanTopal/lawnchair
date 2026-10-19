@@ -1090,9 +1090,9 @@ public class Launcher extends StatefulActivity<LauncherState>
         }
 
         if (statsLogOrdinal == LAUNCHER_STATE_HOME && mWorkspace != null) {
-            logger.withContainerInfo(LauncherAtom.ContainerInfo.newBuilder()
+            logger.withContainerInfo(ContainerInfo.newBuilder()
                     .setWorkspace(
-                            LauncherAtom.WorkspaceContainer.newBuilder()
+                            WorkspaceContainer.newBuilder()
                                     .setPageIndex(pageIndex)).build());
         }
         logger.log(event);
@@ -2371,7 +2371,9 @@ public class Launcher extends StatefulActivity<LauncherState>
         }
 
         List<CellLayout> containers = new ArrayList<>(mWorkspace.getPanelCount() + 1);
-        containers.add(mWorkspace.getHotseat());
+        if (mWorkspace.getHotseat() != null) {
+            containers.add(mWorkspace.getHotseat());
+        }
         mWorkspace.forEachVisiblePage(page -> containers.add((CellLayout) page));
         CellLayout[] containerArray = containers.toArray(new CellLayout[0]);
         LauncherBindableItemsContainer visibleContainer =

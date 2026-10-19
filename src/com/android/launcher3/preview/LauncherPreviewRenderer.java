@@ -33,6 +33,7 @@ import android.graphics.Rect;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.SparseIntArray;
 import android.view.ContextThemeWrapper;
 import android.view.Display;
@@ -182,8 +183,13 @@ public class LauncherPreviewRenderer extends BaseContext
         LauncherWidgetHolder widgetHolder = LauncherComponentProvider.get(this)
                 .getWidgetHolderFactory().newInstance(this);
         if (wallpaperColorResources != null) {
-            widgetHolder.setOnViewCreationCallback(
-                    v -> v.setColorResources(wallpaperColorResources));
+            widgetHolder.setOnViewCreationCallback(v -> {
+                try {
+                    v.setColorResources(wallpaperColorResources);
+                } catch (Throwable e) {
+                    Log.e("LauncherPreviewRenderer", "Failed to set color resources", e);
+                }
+            });
         }
 
         mItemInflater = new ItemInflater<>(

@@ -249,25 +249,31 @@ public class DragLayer extends BaseDragLayer<Launcher> implements LauncherOverla
 
     public void animateViewIntoPosition(DragView dragView, final View child, int duration,
             View anchorView) {
+        View parent = (View) child.getParent();
+        ShortcutAndWidgetContainer childParent = parent instanceof ShortcutAndWidgetContainer
+                ? (ShortcutAndWidgetContainer) parent : null;
+        if (childParent != null) {
+            childParent.measureChild(child);
+            childParent.layoutChild(child);
+        }
 
-        ShortcutAndWidgetContainer childParent = (ShortcutAndWidgetContainer) child.getParent();
         CellLayoutLayoutParams lp =  (CellLayoutLayoutParams) child.getLayoutParams();
-        childParent.measureChild(child);
-        childParent.layoutChild(child);
 
         float coord[] = new float[2];
         float childScale = child.getScaleX();
 
         coord[0] = lp.x + (child.getMeasuredWidth() * (1 - childScale) / 2);
         coord[1] = lp.y + (child.getMeasuredHeight() * (1 - childScale) / 2);
-        TranslationProvider translationProvider = childParent.getTranslationProvider();
-        if (translationProvider != null) {
-            coord[0] = coord[0] + translationProvider.getTranslationX(lp.getCellX());
+        if (childParent != null) {
+            TranslationProvider translationProvider = childParent.getTranslationProvider();
+            if (translationProvider != null) {
+                coord[0] = coord[0] + translationProvider.getTranslationX(lp.getCellX());
+            }
         }
 
         // Since the child hasn't necessarily been laid out, we force the lp to be updated with
         // the correct coordinates (above) and use these to determine the final location
-        float scale = getDescendantCoordRelativeToSelf((View) child.getParent(), coord);
+        float scale = getDescendantCoordRelativeToSelf(parent, coord);
 
         // We need to account for the scale of the child itself, as the above only accounts for
         // the scale in parents.

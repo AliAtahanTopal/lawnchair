@@ -63,7 +63,7 @@
             android:layout_marginEnd="28dp"
             android:background="@android:color/transparent"
             android:ellipsize="end"
-            android:focusableInTouchMode="true"
+            android:focusableInTouchMode="false"
             android:gravity="start|center"
             android:imeOptions="actionGo|flagNoExtractUi"
             android:inputType="textNoSuggestions"

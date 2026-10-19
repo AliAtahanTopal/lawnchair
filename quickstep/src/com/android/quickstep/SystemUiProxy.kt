@@ -32,8 +32,6 @@ import android.os.IBinder
 import android.os.Message
 import android.os.RemoteException
 import android.os.Trace
-import android.os.Trace.traceBegin
-import android.os.Trace.traceEnd
 import android.os.UserHandle
 import android.util.Log
 import android.view.IRemoteAnimationRunner
@@ -1076,14 +1074,11 @@ class SystemUiProxy @Inject constructor(@ApplicationContext private val context:
      */
     @Throws(GetRecentTasksException::class)
     fun getRecentTasks(numTasks: Int, userId: Int): ArrayList<GroupedTaskInfo> {
-        if (recentTasks == null) {
-            Log.e(TAG, "getRecentTasks() failed due to null mRecentTasks")
-            throw GetRecentTasksException("null mRecentTasks")
-        }
+        val recentTasks = recentTasks ?: return ArrayList()
         try {
-            traceBegin(Trace.TRACE_TAG_APP, "getRecentTasks")
+            Trace.beginSection("getRecentTasks")
             val rawTasks =
-                recentTasks?.getRecentTasks(
+                recentTasks.getRecentTasks(
                     numTasks,
                     ActivityManager.RECENT_IGNORE_UNAVAILABLE,
                     userId,
@@ -1093,7 +1088,7 @@ class SystemUiProxy @Inject constructor(@ApplicationContext private val context:
             Log.e(TAG, "Failed call getRecentTasks", e)
             throw GetRecentTasksException("Failed call getRecentTasks", e)
         } finally {
-            traceEnd(Trace.TRACE_TAG_APP)
+            Trace.endSection()
         }
     }
 

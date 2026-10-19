@@ -161,6 +161,8 @@ object UnfoldAnimationBuilder {
                 )
             }
             registerViews(hotseat)
+            setClipChildren(hotseat, false, restoreList)
+            setClipToPadding(hotseat, false, restoreList)
         }
         anim.addEndListener { restoreList.forEach { it.action(it.target, it.value) } }
     }
