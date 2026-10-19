@@ -26,11 +26,16 @@ import static com.android.launcher3.util.MultiTranslateDelegate.INDEX_BUBBLE_ADJ
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
+import android.app.WallpaperManager;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.InsetDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -43,6 +48,11 @@ import android.widget.FrameLayout;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.core.graphics.drawable.RoundedBitmapDrawable;
+import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory;
+
+import com.hoko.blur.HokoBlur;
+import app.lawnchair.theme.color.ColorOption;
 
 import com.android.launcher3.accessibility.DragAndDropAccessibilityDelegate;
 import com.android.launcher3.celllayout.CellLayoutLayoutParams;
@@ -199,16 +209,84 @@ public class Hotseat extends FrameLayout implements Insettable {
         setUpBackground();
         setClipChildren(false);
         setClipToPadding(false);
+
+        if (!hotseatEnabled) {
+            super.setVisibility(GONE);
+            super.setAlpha(0f);
+            mIconsContainer.setVisibility(GONE);
+            mPagedView.setVisibility(GONE);
+            mQsb.setVisibility(GONE);
+        }
+    }
+
+    public boolean isHotseatEnabled() {
+        if (preferenceManager2 == null) {
+            return true;
+        }
+        return PreferenceCacheExtensionsKt.firstCached(preferenceManager2.isHotseatEnabled());
+    }
+
+    @Override
+    public void setVisibility(int visibility) {
+        if (!isHotseatEnabled()) {
+            super.setVisibility(GONE);
+            return;
+        }
+        super.setVisibility(visibility);
+    }
+
+    @Override
+    public void setAlpha(float alpha) {
+        if (!isHotseatEnabled()) {
+            super.setAlpha(0f);
+            return;
+        }
+        super.setAlpha(alpha);
+    }
+
+    @Override
+    public void draw(Canvas canvas) {
+        if (!isHotseatEnabled()) {
+            return;
+        }
+        super.draw(canvas);
+    }
+
+    @Override
+    protected void dispatchDraw(Canvas canvas) {
+        if (!isHotseatEnabled()) {
+            return;
+        }
+        super.dispatchDraw(canvas);
+    }
+
+    @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        if (w != oldw || h != oldh) {
+            setUpBackground();
+        }
     }
 
     private void setUpBackground() {
-        if(!preferenceManager.getHotseatBG().get()) return;
+        if (!isHotseatEnabled() || !preferenceManager.getHotseatBG().get()) {
+            setBackground(null);
+            return;
+        }
 
         var bgColor = PreferenceCacheExtensionsKt.firstCached(preferenceManager2.getHotseatBackgroundColor());
         var transparency = preferenceManager.getHotseatBGAlpha().get();
         var alphaValue = (transparency * 255) / 100;
-        var baseColor = bgColor.getColorPreferenceEntry().getLightColor().invoke(getContext());
-        var finalColor = Color.argb(alphaValue, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor));
+        int finalColor;
+        if (bgColor instanceof ColorOption.Transparent) {
+            finalColor = Color.TRANSPARENT;
+        } else {
+            var baseColor = bgColor.getColorPreferenceEntry().getLightColor().invoke(getContext());
+            var baseAlpha = Color.alpha(baseColor);
+            var finalAlpha = (alphaValue * baseAlpha) / 255;
+            finalColor = Color.argb(finalAlpha, Color.red(baseColor), Color.green(baseColor), Color.blue(baseColor));
+        }
+
         int insetHorizontalLeft = preferenceManager.getHotseatBGHorizontalInsetLeft().get();
         int insetHorizontalRight = preferenceManager.getHotseatBGHorizontalInsetRight().get();
         int insetVerticalTop = preferenceManager.getHotseatBGVerticalInsetTop().get();
@@ -219,12 +297,75 @@ public class Hotseat extends FrameLayout implements Insettable {
                 TypedValue.COMPLEX_UNIT_DIP,
                 cornerRadiusDp,
                 getResources().getDisplayMetrics());
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(finalColor);
-        background.setCornerRadius(cornerRadius);
-        InsetDrawable bg = new InsetDrawable(background,
+
+        GradientDrawable colorOverlay = new GradientDrawable();
+        colorOverlay.setColor(finalColor);
+        colorOverlay.setCornerRadius(cornerRadius);
+
+        float blurFactor = PreferenceCacheExtensionsKt.firstCached(preferenceManager2.getHotseatBlur());
+        Drawable backgroundDrawable = colorOverlay;
+
+        if (blurFactor > 0f) {
+            if (getWidth() > 0 && getHeight() > 0) {
+                int dockWidth = getWidth() - insetHorizontalLeft - insetHorizontalRight;
+                int dockHeight = getHeight() - insetVerticalTop - insetVerticalBottom;
+                if (dockWidth > 0 && dockHeight > 0) {
+                    Drawable blurredSlice = createBlurredWallpaperSlice(
+                            insetHorizontalLeft, insetVerticalTop, dockWidth, dockHeight, cornerRadius, blurFactor);
+                    if (blurredSlice != null) {
+                        backgroundDrawable = new LayerDrawable(new Drawable[]{blurredSlice, colorOverlay});
+                    }
+                }
+            } else {
+                post(this::setUpBackground);
+            }
+        }
+
+        InsetDrawable bg = new InsetDrawable(backgroundDrawable,
                 insetHorizontalLeft, insetVerticalTop, insetHorizontalRight, insetVerticalBottom);
         setBackground(bg);
+    }
+
+    @Nullable
+    private Drawable createBlurredWallpaperSlice(int leftInset, int topInset,
+            int dockWidth, int dockHeight, float cornerRadius, float blurFactor) {
+        try {
+            WallpaperManager wallpaperManager = WallpaperManager.getInstance(getContext());
+            Drawable wallpaper = wallpaperManager.getDrawable();
+            if (wallpaper == null) {
+                return null;
+            }
+
+            int screenWidth = getResources().getDisplayMetrics().widthPixels;
+            int screenHeight = getResources().getDisplayMetrics().heightPixels;
+
+            int[] location = new int[2];
+            getLocationOnScreen(location);
+            int dockLeft = location[0] + leftInset;
+            int dockTop = location[1] + topInset;
+
+            Bitmap dockBitmap = Bitmap.createBitmap(dockWidth, dockHeight, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(dockBitmap);
+            canvas.translate(-dockLeft, -dockTop);
+            wallpaper.setBounds(0, 0, screenWidth, screenHeight);
+            wallpaper.draw(canvas);
+
+            int radius = Math.max(1, Math.min(25, Math.round(blurFactor * 25)));
+            float sampleFactor = 3.0f + blurFactor * 5.0f;
+            Bitmap blurredBitmap = HokoBlur.with(getContext())
+                    .forceCopy(true)
+                    .scheme(HokoBlur.SCHEME_OPENGL)
+                    .sampleFactor(sampleFactor)
+                    .radius(radius)
+                    .blur(dockBitmap);
+
+            RoundedBitmapDrawable roundedDrawable = RoundedBitmapDrawableFactory.create(
+                    getResources(), blurredBitmap);
+            roundedDrawable.setCornerRadius(cornerRadius);
+            return roundedDrawable;
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
     /** Provides translation X for hotseat icons for the channel. */
@@ -401,6 +542,20 @@ public class Hotseat extends FrameLayout implements Insettable {
 
     @Override
     public void setInsets(Rect insets) {
+        if (!isHotseatEnabled()) {
+            super.setVisibility(GONE);
+            mQsb.setVisibility(GONE);
+            mPageIndicator.setVisibility(GONE);
+            mIconsContainer.setVisibility(GONE);
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) getLayoutParams();
+            if (lp != null) {
+                lp.width = 0;
+                lp.height = 0;
+                setLayoutParams(lp);
+            }
+            return;
+        }
+
         FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) getLayoutParams();
         DeviceProfile grid = mActivity.getDeviceProfile();
 
@@ -454,6 +609,9 @@ public class Hotseat extends FrameLayout implements Insettable {
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
+        if (!isHotseatEnabled()) {
+            return false;
+        }
         int yThreshold = getMeasuredHeight() - getPaddingBottom();
         if (ev.getY() > yThreshold || isTouchOnQsb(ev)) {
             return false;
@@ -480,6 +638,9 @@ public class Hotseat extends FrameLayout implements Insettable {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        if (!isHotseatEnabled()) {
+            return false;
+        }
         if (mSendTouchToPager) {
             MotionEvent pagerEv = obtainPagerEvent(event);
             boolean handled = mPagedView.dispatchTouchEvent(pagerEv);
@@ -504,6 +665,10 @@ public class Hotseat extends FrameLayout implements Insettable {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        if (!isHotseatEnabled()) {
+            setMeasuredDimension(0, 0);
+            return;
+        }
         int widthSize = MeasureSpec.getSize(widthMeasureSpec);
         int heightSize = MeasureSpec.getSize(heightMeasureSpec);
         setMeasuredDimension(widthSize, heightSize);
@@ -547,6 +712,9 @@ public class Hotseat extends FrameLayout implements Insettable {
 
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        if (!isHotseatEnabled()) {
+            return;
+        }
         int width = r - l;
         int height = b - t;
         int paddingLeft = getPaddingLeft();

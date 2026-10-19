@@ -32,6 +32,7 @@ import android.util.Log;
 import android.view.AttachedSurfaceControl;
 import android.view.CrossWindowBlurListeners;
 import android.view.SurfaceControl;
+import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -47,7 +48,10 @@ import com.android.launcher3.statemanager.StateManager;
 import com.android.launcher3.uioverrides.QuickstepLauncher;
 import com.android.launcher3.util.MultiPropertyFactory;
 import com.android.launcher3.util.MultiPropertyFactory.MultiProperty;
+import com.android.launcher3.folder.Folder;
 import com.android.systemui.shared.system.BlurUtils;
+import app.lawnchair.preferences2.PreferenceCacheExtensionsKt;
+import app.lawnchair.preferences2.PreferenceManager2;
 
 /**
  * Utility class for applying depth effect
@@ -72,7 +76,8 @@ public class BaseDepthController {
 
     private static final int DEPTH_INDEX_STATE_TRANSITION = 0;
     private static final int DEPTH_INDEX_WIDGET = 1;
-    private static final int DEPTH_INDEX_COUNT = 2;
+    private static final int DEPTH_INDEX_FOLDER = 2;
+    private static final int DEPTH_INDEX_COUNT = 3;
 
     // b/291401432
     private static final String TAG = "BaseDepthController";
@@ -82,6 +87,8 @@ public class BaseDepthController {
     public final MultiProperty stateDepth;
     /** Property to set the depth for widget picker. */
     public final MultiProperty widgetDepth;
+    /** Property to set the depth for open folder. */
+    public final MultiProperty folderDepth;
 
     /**
      * Blur radius when completely zoomed out, in pixels.
@@ -145,6 +152,7 @@ public class BaseDepthController {
                 new MultiPropertyFactory<>(this, DEPTH, DEPTH_INDEX_COUNT, Float::max);
         stateDepth = depthProperty.get(DEPTH_INDEX_STATE_TRANSITION);
         widgetDepth = depthProperty.get(DEPTH_INDEX_WIDGET);
+        folderDepth = depthProperty.get(DEPTH_INDEX_FOLDER);
 //        mEarlyWakeupInfo.token = new Binder();
 //        mEarlyWakeupInfo.trace = BaseDepthController.class.getName();
     }
@@ -223,23 +231,67 @@ public class BaseDepthController {
             blurAmount = depth;
         }
 
+        float blurFactor = 1f;
+        boolean isAllApps = false;
+        boolean isFolder = false;
+        if (mLauncher != null) {
+            try {
+                PreferenceManager2 prefs2 = PreferenceManager2.getInstance(mLauncher);
+                Folder openFolder = Folder.getOpen(mLauncher);
+                boolean isFolderOpen = openFolder != null;
+                boolean isFolderInDrawer = isFolderOpen && openFolder.isInAppDrawer();
+                if (mLauncher.getStateManager().getState() == LauncherState.ALL_APPS
+                        || mLauncher.getStateManager().getTargetState() == LauncherState.ALL_APPS) {
+                    if (isFolderInDrawer) {
+                        blurFactor = PreferenceCacheExtensionsKt.firstCached(prefs2.getDrawerFolderBlur());
+                    } else {
+                        blurFactor = PreferenceCacheExtensionsKt.firstCached(prefs2.getAppDrawerBlur());
+                    }
+                    isAllApps = true;
+                } else if (isFolderOpen) {
+                    blurFactor = PreferenceCacheExtensionsKt.firstCached(prefs2.getFolderBlur());
+                    isFolder = true;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
         int previousBlur = mCurrentBlur;
+        int maxRadius = (isAllApps || isFolder) ? Math.round(Utilities.dpToPx(80f)) : mMaxBlurRadius;
+        int targetBlur = !hasOpaqueBg && !mPauseBlurs
+                ? (int) (blurAmount * maxRadius * blurFactor) : 0;
         int newBlur = BlurUtils.supportsBlursOnWindows() && mCrossWindowBlursEnabled
-                && !hasOpaqueBg && !mPauseBlurs
-                ? (int) (blurAmount * mMaxBlurRadius) : 0;
-        int delta = Math.abs(newBlur - previousBlur);
-        boolean skipUpdate = skipSimilarBlur && delta < Utilities.dpToPx(1) && newBlur != 0
+                ? targetBlur : 0;
+        int delta = Math.abs(targetBlur - previousBlur);
+        boolean skipUpdate = skipSimilarBlur && delta < Utilities.dpToPx(1) && targetBlur != 0
                 && previousBlur != 0 && blurAmount != 1f;
 
         // Always keep mCurrentBlur and workspace RenderEffects in sync with depth, even when the
         // SurfaceControl is temporarily unavailable. Otherwise setDepth(0) can early-return later
         // (same depth) and leave workspace/hotseat stuck blurred until the activity restarts.
         if (!skipUpdate) {
-            mCurrentBlur = newBlur;
+            mCurrentBlur = targetBlur;
             blurWorkspaceDepthTargets();
         }
 
-        if (!BlurUtils.supportsBlursOnWindows()) {
+        if (mLauncher != null) {
+            View wallpaperBlur = mLauncher.findViewById(com.android.launcher3.R.id.wallpaper_blur_view);
+            if (wallpaperBlur != null && !isFolder) {
+                float appDrawerBlur = 0f;
+                try {
+                    PreferenceManager2 p2 = PreferenceManager2.getInstance(mLauncher);
+                    appDrawerBlur = PreferenceCacheExtensionsKt.firstCached(p2.getAppDrawerBlur());
+                } catch (Throwable ignored) {
+                }
+                if (appDrawerBlur > 0f) {
+                    wallpaperBlur.setAlpha(Math.min(1f, depth * appDrawerBlur));
+                } else if (depth <= 0f) {
+                    wallpaperBlur.setAlpha(0f);
+                }
+            }
+        }
+
+        if (!BlurUtils.supportsBlursOnWindows() || !mCrossWindowBlursEnabled) {
             return;
         }
         if (mBaseSurface == null) {
@@ -274,7 +326,7 @@ public class BaseDepthController {
             if (blurSurface == null || !blurSurface.isValid()) {
                 return;
             }
-            finalTransaction.setBackgroundBlurRadius(blurSurface, mCurrentBlur)
+            finalTransaction.setBackgroundBlurRadius(blurSurface, targetBlur)
                     .setOpaque(blurSurface, isSurfaceOpaque);
 
             boolean wantsEarlyWakeUp = blurAmount > 0 && blurAmount < 1;
@@ -343,21 +395,28 @@ public class BaseDepthController {
         StateManager<LauncherState, Launcher> stateManager = mLauncher.getStateManager();
         LauncherState settledState = stateManager.getState();
 
+        boolean isFolderOpen = Folder.getOpen(mLauncher) != null;
+        boolean hasCustomAppDrawerBlur = false;
+        try {
+            PreferenceManager2 prefs2 = PreferenceManager2.getInstance(mLauncher);
+            hasCustomAppDrawerBlur = PreferenceCacheExtensionsKt.firstCached(prefs2.getAppDrawerBlur()) > 0f;
+        } catch (Throwable ignored) {
+        }
         // Stuck-blur bug: AllAppsState.shouldBlurWorkspace(NORMAL) is true during close, and a
         // skipped/interrupted apply can leave RenderEffect on workspace/hotseat icons after home
         // is settled. Always clear once we are on NORMAL with no active transition, or depth is 0.
-        if (!Flags.allAppsBlur()
+        if ((!Flags.allAppsBlur() && !hasCustomAppDrawerBlur && !isFolderOpen)
                 || mDepth <= 0f
                 || mCurrentBlur <= 0
-                || (settledState == LauncherState.NORMAL && !stateManager.isInTransition())) {
+                || (settledState == LauncherState.NORMAL && !stateManager.isInTransition() && !isFolderOpen)) {
             clearWorkspaceRenderEffects();
             return false;
         }
 
         LauncherState targetState = stateManager.getTargetState() != null
                 ? stateManager.getTargetState() : settledState;
-        // Only blur workspace if the current state wants to blur based on the target state.
-        if (!stateManager.getCurrentStableState().shouldBlurWorkspace(targetState)) {
+        // Only blur workspace if the current state wants to blur based on the target state, or if a folder is open.
+        if (!isFolderOpen && !stateManager.getCurrentStableState().shouldBlurWorkspace(targetState)) {
             clearWorkspaceRenderEffects();
             return false;
         }

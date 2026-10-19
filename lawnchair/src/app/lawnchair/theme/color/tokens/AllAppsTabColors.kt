@@ -1,10 +1,12 @@
 package app.lawnchair.theme.color.tokens
 
 import android.content.Context
+import android.graphics.Color
 import androidx.core.graphics.luminance
 import app.lawnchair.preferences2.PreferenceManager2
 import app.lawnchair.preferences2.firstCached
 import app.lawnchair.theme.UiColorMode
+import app.lawnchair.theme.color.ColorOption
 import dev.kdrag0n.monet.theme.ColorScheme
 
 /** Shared colors for Personal/Work tabs in the app drawer. */
@@ -16,9 +18,12 @@ object AllAppsTabColors {
         uiColorMode: UiColorMode,
     ): Int {
         val prefs2 = PreferenceManager2.getInstance(context)
-        val customColor = prefs2.workProfileTabBackgroundColor.firstCached()
-            .colorPreferenceEntry.lightColor.invoke(context)
-        return if (customColor != 0) {
+        val colorOption = prefs2.workProfileTabBackgroundColor.firstCached()
+        if (colorOption is ColorOption.Transparent) {
+            return Color.TRANSPARENT
+        }
+        val customColor = colorOption.colorPreferenceEntry.lightColor.invoke(context)
+        return if (colorOption !is ColorOption.Default && customColor != 0) {
             customColor
         } else {
             ColorTokens.AllAppsTabBackgroundSelected.resolveColor(context, scheme, uiColorMode)

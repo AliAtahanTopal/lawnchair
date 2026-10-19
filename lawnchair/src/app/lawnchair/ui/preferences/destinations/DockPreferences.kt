@@ -105,9 +105,16 @@ fun HotseatBackgroundSettings(prefs: PreferenceManager, prefs2: PreferenceManage
         SliderPreference(
             label = stringResource(id = R.string.hotseat_bg_alpha),
             adapter = prefs.hotseatBGAlpha.getAdapter(),
-            step = 5,
-            valueRange = 5..100,
+            step = 1,
+            valueRange = 0..100,
             showUnit = "%",
+        )
+        SliderPreference(
+            label = stringResource(id = R.string.hotseat_blur_label),
+            adapter = prefs2.hotseatBlur.getAdapter(),
+            step = 0f,
+            valueRange = 0F..1F,
+            showAsPercentage = true,
         )
         SliderPreference(
             label = stringResource(id = R.string.hotseat_bg_horizontal_inset_left),
@@ -237,6 +244,7 @@ fun ColumnScope.DockPreferencesPreview(modifier: Modifier = Modifier) {
             prefs2.hotseatBackgroundColor.getAdapter(),
             prefs2.hotseatBackgroundCornerRadius.getAdapter(),
             prefs.hotseatBGAlpha.getAdapter(),
+            prefs2.hotseatBlur.getAdapter(),
         )
 
         PreferenceGroupHeading(

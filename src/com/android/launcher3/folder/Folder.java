@@ -47,8 +47,13 @@ import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
+import android.graphics.RenderEffect;
+import android.graphics.Shader;
 import android.graphics.drawable.GradientDrawable;
+import app.lawnchair.preferences2.PreferenceCacheExtensionsKt;
+import app.lawnchair.preferences2.PreferenceManager2;
 import com.android.launcher3.LauncherSettings;
+import com.android.launcher3.LauncherState;
 import android.hardware.input.InputManager;
 import android.os.Looper;
 import android.text.InputType;
@@ -341,8 +346,6 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
 
         mBackground = DrawableTokens.RoundRectFolder.resolve(getContext());
         mBackground.setColor(LawnchairUtilsKt.resolveFolderBackgroundColor(getContext()));
-        var alpha = LawnchairUtilsKt.getFolderBackgroundAlpha(getContext());
-        mBackground.setAlpha(alpha);
 
         mContent = findViewById(R.id.folder_content);
         mContent.setPadding(paddingLeftRight, dp.folderContentPaddingTop, paddingLeftRight, 0);
@@ -895,6 +898,44 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
         AnimatorSet animatorSet = getFolderAnimationManager()
                 .createAnimatorSet(/* isOpening */ true);
 
+        if (Utilities.ATLEAST_S) {
+            boolean isAllApps = isInAppDrawer() || (mLauncherDelegate.getLauncher() != null && mLauncherDelegate.getLauncher().isInState(LauncherState.ALL_APPS));
+            float folderBlur = 0f;
+            try {
+                PreferenceManager2 prefs2 = PreferenceManager2.getInstance(getContext());
+                if (isAllApps) {
+                    folderBlur = PreferenceCacheExtensionsKt.firstCached(prefs2.getDrawerFolderBlur());
+                } else {
+                    folderBlur = PreferenceCacheExtensionsKt.firstCached(prefs2.getFolderBlur());
+                }
+            } catch (Throwable ignored) {
+            }
+            if (folderBlur > 0f && mLauncherDelegate.getLauncher() != null) {
+                float blurPx = Math.max(1f, Utilities.dpToPx(folderBlur * 80f));
+                RenderEffect blurEffect = RenderEffect.createBlurEffect(blurPx, blurPx, Shader.TileMode.DECAL);
+                if (isAllApps) {
+                    View appsView = mLauncherDelegate.getLauncher().getAppsView();
+                    if (appsView != null) {
+                        appsView.setRenderEffect(blurEffect);
+                    }
+                } else {
+                    for (View target : mLauncherDelegate.getLauncher().getDepthBlurTargets()) {
+                        target.setRenderEffect(blurEffect);
+                    }
+                    try {
+                        Object depthController = mLauncherDelegate.getLauncher().getClass().getMethod("getDepthController").invoke(mLauncherDelegate.getLauncher());
+                        if (depthController != null) {
+                            Object folderDepth = depthController.getClass().getField("folderDepth").get(depthController);
+                            if (folderDepth != null) {
+                                folderDepth.getClass().getMethod("setValue", float.class).invoke(folderDepth, folderBlur);
+                            }
+                        }
+                    } catch (Throwable ignored) {
+                    }
+                }
+            }
+        }
+
         animatorSet.addListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationStart(Animator animation) {
@@ -1167,13 +1208,37 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
                     launcher.getStateManager().getState().getWorkspaceScrimColor(launcher));
         }
         SCALE_PROPERTY.set(launcher.getWorkspace(), 1f);
-        SCALE_PROPERTY.set(launcher.getHotseat(), 1f);
+        if (launcher.getHotseat() != null && launcher.getHotseat().isHotseatEnabled()) {
+            SCALE_PROPERTY.set(launcher.getHotseat(), 1f);
+        } else if (launcher.getHotseat() != null) {
+            launcher.getHotseat().setVisibility(View.GONE);
+            launcher.getHotseat().setAlpha(0f);
+        }
         // Clear any stuck workspace/hotseat RenderEffect if we are not in a depth-blur state.
         // Expressive folder open/close can race with All Apps depth blur and leave icons blurred.
-        if (Utilities.ATLEAST_S
-                && launcher.getStateManager().getState().getDepth(launcher) == 0f) {
-            for (View target : launcher.getDepthBlurTargets()) {
-                target.setRenderEffect(null);
+        if (Utilities.ATLEAST_S) {
+            try {
+                Object depthController = launcher.getClass().getMethod("getDepthController").invoke(launcher);
+                if (depthController != null) {
+                    Object folderDepth = depthController.getClass().getField("folderDepth").get(depthController);
+                    if (folderDepth != null) {
+                        folderDepth.getClass().getMethod("setValue", float.class).invoke(folderDepth, 0f);
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+            if (launcher.getStateManager().getState().getDepth(launcher) == 0f) {
+                for (View target : launcher.getDepthBlurTargets()) {
+                    target.setRenderEffect(null);
+                }
+            }
+            View appsView = launcher.getAppsView();
+            if (appsView != null) {
+                appsView.setRenderEffect(null);
+            }
+            View wallpaperBlur = launcher.findViewById(R.id.wallpaper_blur_view);
+            if (wallpaperBlur != null) {
+                wallpaperBlur.setAlpha(0f);
             }
         }
     }

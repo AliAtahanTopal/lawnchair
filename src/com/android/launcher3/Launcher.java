@@ -2743,7 +2743,13 @@ public class Launcher extends StatefulActivity<LauncherState>
     /** @return list of View targets to be blurred based on changes to depth. */
     @NonNull
     public List<View> getDepthBlurTargets() {
-        return mDepthBlurTargets == null ? Collections.emptyList() : mDepthBlurTargets;
+        if (mDepthBlurTargets == null) {
+            return Collections.emptyList();
+        }
+        if (mHotseat != null && !mHotseat.isHotseatEnabled()) {
+            return Collections.singletonList(mWorkspace);
+        }
+        return mDepthBlurTargets;
     }
 
     /**
@@ -2755,7 +2761,9 @@ public class Launcher extends StatefulActivity<LauncherState>
         float scale = Utilities.mapToRange(progress, 0f, 1f, 1f,
                 mDeviceProfile.getBottomSheetProfile().getBottomSheetWorkspaceScale(), EMPHASIZED);
         WORKSPACE_WIDGET_SCALE.set(getWorkspace(), scale);
-        HOTSEAT_WIDGET_SCALE.set(getHotseat(), scale);
+        if (getHotseat() != null && getHotseat().isHotseatEnabled()) {
+            HOTSEAT_WIDGET_SCALE.set(getHotseat(), scale);
+        }
     }
 
     private static class NonConfigInstance {

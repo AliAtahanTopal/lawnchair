@@ -38,6 +38,7 @@
 
     <string name="always_choice">Always</string>
     <string name="never_choice">Never</string>
+    <string name="transparent">Transparent</string>
 
     <string name="clipboard">Clipboard</string>
     <string name="action_copy_link">Copy link</string>
@@ -459,6 +460,7 @@
     <string name="rgb_red">Red</string>
     <string name="rgb_green">Green</string>
     <string name="rgb_blue">Blue</string>
+    <string name="transparency">Transparency</string>
 
     <string name="hsb">HSB</string>
     <string name="hsb_hue">Hue</string>
@@ -801,6 +803,7 @@
     <string name="hotseat_bg_color_label">Background color</string>
     <string name="hotseat_bg_corner_radius">Background corner radius</string>
     <string name="hotseat_bg_alpha">Background opacity</string>
+    <string name="hotseat_blur_label">Dock blur</string>
 
 
     <!-- Pause apps shortcut -->
@@ -882,6 +885,7 @@
     <string name="app_drawer_haptic_feedback_label">Haptic feedback</string>
     <string name="app_drawer_indent_label">Horizontal padding</string>
     <string name="app_drawer_bg_color_label">Background color</string>
+    <string name="app_drawer_blur_label">App drawer blur</string>
     <string name="work_profile_tab_background_label">Tab background color</string>
 
     <string name="pref_all_apps_search_bar_background">Show background behind search bar</string>
@@ -899,6 +903,9 @@
     <string name="folder_preview_bg_opacity_label">Icon preview background opacity</string>
     <string name="folder_preview_icon_size_label">Preview icon size</string>
     <string name="folder_bg_opacity_label">Folder background opacity</string>
+    <string name="folder_blur_label">Folder blur</string>
+    <string name="home_screen_folder_blur_label">Home screen folder blur</string>
+    <string name="app_drawer_folder_blur_label">App drawer folder blur</string>
     <string name="folder_preview_bg_color_label">Icon background color</string>
 
     <string name="max_folder_columns">Maximum folder columns</string>

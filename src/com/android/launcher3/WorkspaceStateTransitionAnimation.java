@@ -137,17 +137,23 @@ public class WorkspaceStateTransitionAnimation {
                     scaleInterpolator);
         }
 
-        mWorkspace.setPivotToScaleWithSelf(hotseat);
-        float hotseatScale = hotseatScaleAndTranslation.scale;
-        if (shouldSpring) {
-            PendingAnimation pa = (PendingAnimation) propertySetter;
-            pa.add(getSpringScaleAnimator(mLauncher, hotseat, hotseatScale,
-                    HOTSEAT_SCALE_PROPERTY));
-        } else {
-            Interpolator hotseatScaleInterpolator = config.getInterpolator(ANIM_HOTSEAT_SCALE,
-                    scaleInterpolator);
-            propertySetter.setFloat(hotseat, HOTSEAT_SCALE_PROPERTY, hotseatScale,
-                    hotseatScaleInterpolator);
+        boolean isHotseatEnabled = hotseat != null && hotseat.isHotseatEnabled();
+        if (isHotseatEnabled) {
+            mWorkspace.setPivotToScaleWithSelf(hotseat);
+            float hotseatScale = hotseatScaleAndTranslation.scale;
+            if (shouldSpring) {
+                PendingAnimation pa = (PendingAnimation) propertySetter;
+                pa.add(getSpringScaleAnimator(mLauncher, hotseat, hotseatScale,
+                        HOTSEAT_SCALE_PROPERTY));
+            } else {
+                Interpolator hotseatScaleInterpolator = config.getInterpolator(ANIM_HOTSEAT_SCALE,
+                        scaleInterpolator);
+                propertySetter.setFloat(hotseat, HOTSEAT_SCALE_PROPERTY, hotseatScale,
+                        hotseatScaleInterpolator);
+            }
+        } else if (hotseat != null) {
+            hotseat.setScaleX(1f);
+            hotseat.setScaleY(1f);
         }
 
         Interpolator workspaceFadeInterpolator = config.getInterpolator(ANIM_WORKSPACE_FADE,
@@ -157,8 +163,13 @@ public class WorkspaceStateTransitionAnimation {
                 workspacePageIndicatorAlpha, workspaceFadeInterpolator);
         Interpolator hotseatFadeInterpolator = config.getInterpolator(ANIM_HOTSEAT_FADE,
                 workspaceFadeInterpolator);
-        float hotseatIconsAlpha = (elements & HOTSEAT_ICONS) != 0 ? 1 : 0;
-        propertySetter.setViewAlpha(hotseat, hotseatIconsAlpha, hotseatFadeInterpolator);
+        float hotseatIconsAlpha = (elements & HOTSEAT_ICONS) != 0 && isHotseatEnabled ? 1 : 0;
+        if (isHotseatEnabled) {
+            propertySetter.setViewAlpha(hotseat, hotseatIconsAlpha, hotseatFadeInterpolator);
+        } else if (hotseat != null) {
+            hotseat.setAlpha(0f);
+            hotseat.setVisibility(View.GONE);
+        }
 
         // Update the accessibility flags for hotseat based on launcher state.
         hotseat.setImportantForAccessibility(

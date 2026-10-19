@@ -35,21 +35,21 @@ class ColorPreferenceModelList @Inject constructor(
             ColorPreferenceModel(
                 prefObject = prefs.hotseatBackgroundColor,
                 labelRes = R.string.hotseat_bg_color_label,
-                dynamicEntries = dynamicColorsWithDefault,
+                dynamicEntries = dynamicColorsWithDefaultAndTransparent,
             ),
         )
         registerModel(
             ColorPreferenceModel(
                 prefObject = prefs.appDrawerBackgroundColor,
                 labelRes = R.string.app_drawer_bg_color_label,
-                dynamicEntries = dynamicColorsWithDefault,
+                dynamicEntries = dynamicColorsWithDefaultAndTransparent,
             ),
         )
         registerModel(
             ColorPreferenceModel(
                 prefObject = prefs.workProfileTabBackgroundColor,
                 labelRes = R.string.work_profile_tab_background_label,
-                dynamicEntries = dynamicColors,
+                dynamicEntries = dynamicColorsWithTransparent,
             ),
         )
         registerModel(
@@ -70,7 +70,7 @@ class ColorPreferenceModelList @Inject constructor(
             ColorPreferenceModel(
                 prefObject = prefs.folderColor,
                 labelRes = R.string.folder_preview_bg_color_label,
-                dynamicEntries = dynamicColorsWithDefault,
+                dynamicEntries = dynamicColorsWithDefaultAndTransparent,
             ),
         )
     }

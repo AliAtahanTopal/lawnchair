@@ -31,6 +31,7 @@ import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.drawable.BitmapDrawable
@@ -187,53 +188,63 @@ fun getFolderBackgroundAlpha(context: Context): Int {
 }
 
 /**
- * Custom folder color from preferences, or `0` when the theme default should be used.
- *
- * Note: pure black (`#FF000000`) is a valid custom color and is not treated as default.
+ * Custom folder color from preferences, or `null` when the theme default should be used.
  */
-fun getCustomFolderColor(context: Context): Int {
+fun getCustomFolderColor(context: Context): Int? {
     val prefs2 = PreferenceManager2.getInstance(context)
-    return prefs2.folderColor.firstCached().colorPreferenceEntry.lightColor(context)
+    val colorOption = prefs2.folderColor.firstCached()
+    return if (colorOption !is ColorOption.Default) {
+        colorOption.colorPreferenceEntry.lightColor(context)
+    } else {
+        null
+    }
 }
 
 /** Closed-folder preview circle color (includes preview opacity). */
 fun resolveFolderPreviewColor(context: Context): Int {
     val custom = getCustomFolderColor(context)
-    val base = if (custom != 0) {
-        custom
-    } else {
-        ColorTokens.FolderPreviewColor.resolveColor(context)
-    }
-    return ColorUtils.setAlphaComponent(base, getFolderPreviewAlpha(context))
+    val base = custom ?: ColorTokens.FolderPreviewColor.resolveColor(context)
+    val colorAlpha = Color.alpha(base)
+    val sliderAlpha = getFolderPreviewAlpha(context)
+    val effectiveAlpha = ((colorAlpha / 255f) * (sliderAlpha / 255f) * 255f).roundToInt()
+    return ColorUtils.setAlphaComponent(base, effectiveAlpha)
 }
 
-/**
- * Open-folder background fill color.
- * Opacity is applied separately via [getFolderBackgroundAlpha] on the drawable.
- */
+/** Open-folder background fill color (includes folder opacity). */
 fun resolveFolderBackgroundColor(context: Context): Int {
     val custom = getCustomFolderColor(context)
-    return if (custom != 0) {
-        custom
-    } else {
-        ColorTokens.FolderBackgroundColor.resolveColor(context)
-    }
+    val base = custom ?: ColorTokens.FolderBackgroundColor.resolveColor(context)
+    val colorAlpha = Color.alpha(base)
+    val sliderAlpha = getFolderBackgroundAlpha(context)
+    val effectiveAlpha = ((colorAlpha / 255f) * (sliderAlpha / 255f) * 255f).roundToInt()
+    return ColorUtils.setAlphaComponent(base, effectiveAlpha)
 }
 
 /** Apply Lawnchair custom allapps colour to the provided colour */
 private fun getAllAppsBaseColor(context: Context, defaultColor: Int): Int {
     val prefs2 = PreferenceManager2.getInstance(context)
-    val colorOptions: ColorOption = prefs2.appDrawerBackgroundColor.firstCached()
-    val color = colorOptions.colorPreferenceEntry.lightColor.invoke(context)
-    val baseColor = if (color != 0) color else defaultColor
+    val colorOption: ColorOption = prefs2.appDrawerBackgroundColor.firstCached()
+    if (colorOption is ColorOption.Transparent) {
+        return Color.TRANSPARENT
+    }
+    val color = colorOption.colorPreferenceEntry.lightColor.invoke(context)
+    val baseColor = if (colorOption !is ColorOption.Default && color != 0) color else defaultColor
     return ColorUtils.setAlphaComponent(baseColor, 255)
 }
 
 /** Apply Lawnchair custom allapps opacity and colour to the provided colour */
 fun getAllAppsBackgroundColor(context: Context, defaultColor: Int): Int {
+    val prefs2 = PreferenceManager2.getInstance(context)
+    val colorOption: ColorOption = prefs2.appDrawerBackgroundColor.firstCached()
+    if (colorOption is ColorOption.Transparent) {
+        return Color.TRANSPARENT
+    }
+    val baseColor = getAllAppsBaseColor(context, defaultColor)
     val prefs = PreferenceManager.getInstance(context)
     val userOpacity = prefs.drawerOpacity.get()
-    return ColorUtils.setAlphaComponent(getAllAppsBaseColor(context, defaultColor), (userOpacity * 255).roundToInt())
+    val baseAlpha = Color.alpha(baseColor)
+    val finalAlpha = (baseAlpha * userOpacity).roundToInt()
+    return ColorUtils.setAlphaComponent(baseColor, finalAlpha)
 }
 
 fun Context.checkPackagePermission(packageName: String, permissionName: String): Boolean {

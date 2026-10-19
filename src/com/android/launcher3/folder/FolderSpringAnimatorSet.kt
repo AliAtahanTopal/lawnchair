@@ -22,6 +22,8 @@ import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.content.Context
 import android.graphics.Color
+import android.graphics.RenderEffect
+import android.graphics.Shader
 import android.graphics.drawable.GradientDrawable
 import android.util.FloatProperty
 import android.util.Property
@@ -29,10 +31,14 @@ import android.view.View
 import androidx.dynamicanimation.animation.DynamicAnimation.MIN_VISIBLE_CHANGE_ALPHA
 import androidx.dynamicanimation.animation.DynamicAnimation.MIN_VISIBLE_CHANGE_PIXELS
 import androidx.dynamicanimation.animation.DynamicAnimation.MIN_VISIBLE_CHANGE_SCALE
+import app.lawnchair.preferences2.PreferenceManager2
+import app.lawnchair.preferences2.firstCached
 import com.android.launcher3.BubbleTextView
 import com.android.launcher3.LauncherAnimUtils
 import com.android.launcher3.LauncherAnimUtils.SCALE_PROPERTY
 import com.android.launcher3.LauncherState
+import com.android.launcher3.R
+import com.android.launcher3.Utilities
 import com.android.launcher3.Utilities.isDarkTheme
 import com.android.launcher3.anim.SpringAnimationBuilder
 import com.android.launcher3.apppairs.AppPairIcon
@@ -327,9 +333,21 @@ class FolderSpringAnimatorSet(val animatorSet: AnimatorSet) {
             launcherDelegate: LauncherDelegate,
         ) {
             val launcher = launcherDelegate.launcher ?: return
+            val prefs2 = PreferenceManager2.getInstance(context)
             // Folder scrim uses a black overlay with alpha 0→dimmed; that replaces the app drawer
             // scrim colors and starts fully transparent, so the list background disappears (#6551).
             if (launcher.isInState(LauncherState.ALL_APPS)) {
+                val drawerFolderBlur = prefs2.drawerFolderBlur.firstCached()
+                if (Utilities.ATLEAST_S) {
+                    if (isOpening && drawerFolderBlur > 0f) {
+                        val blurPx = Utilities.dpToPx(drawerFolderBlur * 80f).toFloat().coerceAtLeast(1f)
+                        val blurEffect = RenderEffect.createBlurEffect(blurPx, blurPx, Shader.TileMode.DECAL)
+                        launcher.appsView?.setRenderEffect(blurEffect)
+                    } else if (!isOpening) {
+                        launcher.appsView?.setRenderEffect(null)
+                    }
+                }
+                animatorSet.addListener(FolderScrimAnimationListener(launcher.scrimView, isOpening, launcher))
                 return
             }
             val scrimView = launcher.scrimView
@@ -363,19 +381,44 @@ class FolderSpringAnimatorSet(val animatorSet: AnimatorSet) {
                 property = SCALE_PROPERTY,
                 view = workspace,
             )
-            playSpringAnimation(
-                context = context,
-                animatorSet = animatorSet,
-                isOpening = isOpening,
-                startDelay = 0,
-                stiffness = STIFFNESS_LAUNCHER_SCRIM,
-                damping = DAMPING_LAUNCHER_SCRIM,
-                startValue = 1f,
-                endValue = LAUNCHER_SCALE,
-                minVisibleChange = MIN_VISIBLE_CHANGE_SCALE,
-                property = SCALE_PROPERTY,
-                view = hotseat,
-            )
+            if (prefs2.isHotseatEnabled.firstCached()) {
+                playSpringAnimation(
+                    context = context,
+                    animatorSet = animatorSet,
+                    isOpening = isOpening,
+                    startDelay = 0,
+                    stiffness = STIFFNESS_LAUNCHER_SCRIM,
+                    damping = DAMPING_LAUNCHER_SCRIM,
+                    startValue = 1f,
+                    endValue = LAUNCHER_SCALE,
+                    minVisibleChange = MIN_VISIBLE_CHANGE_SCALE,
+                    property = SCALE_PROPERTY,
+                    view = hotseat,
+                )
+            }
+            val homeFolderBlur = prefs2.folderBlur.firstCached()
+            if (isOpening && homeFolderBlur > 0f && Utilities.ATLEAST_S) {
+                (launcher as? com.android.launcher3.uioverrides.QuickstepLauncher)?.depthController?.folderDepth?.setValue(homeFolderBlur)
+                val blurPx = Utilities.dpToPx(homeFolderBlur * 80f).toFloat().coerceAtLeast(1f)
+                val blurEffect = RenderEffect.createBlurEffect(blurPx, blurPx, Shader.TileMode.DECAL)
+                launcher.depthBlurTargets.forEach { it.setRenderEffect(blurEffect) }
+            }
+            val wallpaperBlurView = launcher.findViewById<View>(R.id.wallpaper_blur_view)
+            if (wallpaperBlurView != null && homeFolderBlur > 0f) {
+                playSpringAnimation(
+                    context = context,
+                    animatorSet = animatorSet,
+                    isOpening = isOpening,
+                    startDelay = 0,
+                    stiffness = STIFFNESS_LAUNCHER_SCRIM,
+                    damping = DAMPING_LAUNCHER_SCRIM,
+                    startValue = 0f,
+                    endValue = 1f,
+                    minVisibleChange = MIN_VISIBLE_CHANGE_ALPHA,
+                    property = LauncherAnimUtils.VIEW_ALPHA,
+                    view = wallpaperBlurView,
+                )
+            }
             animatorSet.addListener(FolderScrimAnimationListener(scrimView, isOpening, launcher))
         }
 

@@ -263,6 +263,10 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     private boolean mWorkspaceFadeInAdjacentScreens;
 
     final WallpaperOffsetInterpolator mWallpaperOffset;
+
+    public WallpaperOffsetInterpolator getWallpaperOffset() {
+        return mWallpaperOffset;
+    }
     private boolean mUnlockWallpaperFromDefaultPageOnLayout;
 
     public static final int REORDER_TIMEOUT = 650;
@@ -2885,7 +2889,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     @Nullable
     private CellLayout resolveHotseatDropLayout(DragObject dragObject) {
         Hotseat hotseat = mLauncher.getHotseat();
-        if (hotseat == null) {
+        if (hotseat == null || !hotseat.isHotseatEnabled()) {
             return null;
         }
         // Prefer the visible dock page so drops land where the user is looking.
@@ -2907,6 +2911,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         // LC-Note: isDragWidget(dragObject) being removed is intended to make placing widget on dock possible 
         
         if (mLauncher.getHotseat() == null
+                || !mLauncher.getHotseat().isHotseatEnabled()
                 || mLauncher.getHotseat().getShortcutsAndWidgets() == null) {
             return false;
         }

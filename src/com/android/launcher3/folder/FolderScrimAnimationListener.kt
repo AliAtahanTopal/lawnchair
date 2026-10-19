@@ -56,9 +56,21 @@ class FolderScrimAnimationListener(
         // Also reset scale here: close animations can be cancelled without going through
         // Folder.closeComplete's restore path, leaving workspace/hotseat visually dimmed/scaled.
         SCALE_PROPERTY.set(launcher.workspace, 1f)
-        SCALE_PROPERTY.set(launcher.hotseat, 1f)
-        if (Utilities.ATLEAST_S && launcher.stateManager.state.getDepth(launcher) == 0f) {
-            launcher.depthBlurTargets.forEach { it.setRenderEffect(null) }
+        if (launcher.hotseat?.isHotseatEnabled == true) {
+            SCALE_PROPERTY.set(launcher.hotseat, 1f)
+        } else {
+            launcher.hotseat?.let {
+                it.visibility = android.view.View.GONE
+                it.alpha = 0f
+            }
+        }
+        launcher.findViewById<android.view.View>(com.android.launcher3.R.id.wallpaper_blur_view)?.alpha = 0f
+        if (Utilities.ATLEAST_S) {
+            (launcher as? com.android.launcher3.uioverrides.QuickstepLauncher)?.depthController?.folderDepth?.setValue(0f)
+            if (launcher.stateManager.state.getDepth(launcher) == 0f) {
+                launcher.depthBlurTargets.forEach { it.setRenderEffect(null) }
+            }
+            launcher.appsView?.setRenderEffect(null)
         }
     }
 }

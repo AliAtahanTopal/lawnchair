@@ -25,3 +25,9 @@ val dynamicColors: List<ColorPreferenceEntry<ColorOption>> =
 
 val dynamicColorsWithDefault: List<ColorPreferenceEntry<ColorOption>> =
     (dynamicColors.asSequence() + ColorOption.Default.colorPreferenceEntry).toList()
+
+val dynamicColorsWithDefaultAndTransparent: List<ColorPreferenceEntry<ColorOption>> =
+    (dynamicColors.asSequence() + ColorOption.Default.colorPreferenceEntry + ColorOption.Transparent.colorPreferenceEntry).toList()
+
+val dynamicColorsWithTransparent: List<ColorPreferenceEntry<ColorOption>> =
+    (dynamicColors.asSequence() + ColorOption.Transparent.colorPreferenceEntry).toList()

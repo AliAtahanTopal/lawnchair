@@ -131,7 +131,7 @@ class FileAccessManager private constructor(private val context: Context) : Safe
     private fun getCurrentWallpaperAccessState(): FileAccessState {
         if (getCurrentAllFilesAccessState() == FileAccessState.Full) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                if (checkPermission(Manifest.permission.READ_MEDIA_IMAGES) && checkPermission(Manifest.permission.READ_MEDIA_VIDEO)) {
+                if (checkPermission(Manifest.permission.READ_MEDIA_IMAGES)) {
                     return FileAccessState.Full
                 } else if (
                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&

@@ -284,6 +284,9 @@ public class PreviewBackground extends DelegatedCellDrawing {
     }
 
     public void drawBackground(Canvas canvas) {
+        if (Color.alpha(getBgColor()) == 0) {
+            return;
+        }
         mPaint.setStyle(Paint.Style.FILL);
         mPaint.setColor(getBgColor());
 
@@ -392,6 +395,9 @@ public class PreviewBackground extends DelegatedCellDrawing {
      * Draws the leave-behind circle on the given canvas and in the given color.
      */
     public void drawLeaveBehind(Canvas canvas, int color) {
+        if (Color.alpha(color) == 0) {
+            return;
+        }
         float originalScale = mScale;
         mScale = 0.5f;
 

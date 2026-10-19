@@ -173,7 +173,8 @@ public class AllAppsState extends LauncherState {
     @Override
     public int getVisibleElements(Launcher launcher) {
         int elements = ALL_APPS_CONTENT | FLOATING_SEARCH_BAR;
-        if (isWorkspaceVisible(launcher.getDeviceProfile())) {
+        boolean isHotseatEnabled = launcher.getHotseat() == null || launcher.getHotseat().isHotseatEnabled();
+        if (isHotseatEnabled && isWorkspaceVisible(launcher.getDeviceProfile())) {
             elements |= HOTSEAT_ICONS;
         }
         return elements;

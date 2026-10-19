@@ -100,7 +100,21 @@ fun AppDrawerPreferences(
             SliderPreference(
                 label = stringResource(id = R.string.background_opacity),
                 adapter = prefs.drawerOpacity.getAdapter(),
-                step = 0.1f,
+                step = 0f,
+                valueRange = 0F..1F,
+                showAsPercentage = true,
+            )
+            SliderPreference(
+                label = stringResource(id = R.string.app_drawer_blur_label),
+                adapter = prefs2.appDrawerBlur.getAdapter(),
+                step = 0f,
+                valueRange = 0F..1F,
+                showAsPercentage = true,
+            )
+            SliderPreference(
+                label = stringResource(id = R.string.app_drawer_folder_blur_label),
+                adapter = prefs2.drawerFolderBlur.getAdapter(),
+                step = 0f,
                 valueRange = 0F..1F,
                 showAsPercentage = true,
             )

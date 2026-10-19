@@ -231,12 +231,24 @@ class PreferenceManager2 @Inject constructor(
         onSet = { reloadHelper.recreate() },
     )
 
+    val hotseatBlur = preference(
+        key = floatPreferencesKey(name = "hotseat_blur"),
+        defaultValue = 0f,
+        onSet = { reloadHelper.reloadGrid() },
+    )
+
     val appDrawerBackgroundColor = preference(
         key = stringPreferencesKey(name = "app_drawer_bg_color"),
         parse = ColorOption::fromString,
         save = ColorOption::toString,
         onSet = { reloadHelper.recreate() },
         defaultValue = ColorOption.fromString(context.getString(R.string.config_default_app_drawer_bg_color)),
+    )
+
+    val appDrawerBlur = preference(
+        key = floatPreferencesKey(name = "app_drawer_blur"),
+        defaultValue = 1f,
+        onSet = { reloadHelper.recreate() },
     )
 
     val appDrawerSearchBarBackground = preference(
@@ -505,6 +517,18 @@ class PreferenceManager2 @Inject constructor(
     val folderBackgroundOpacity = preference(
         key = floatPreferencesKey(name = "folder_background_opacity"),
         defaultValue = resourceProvider.getFloat(R.dimen.config_default_folder_background_opacity),
+        onSet = { reloadHelper.reloadGrid() },
+    )
+
+    val folderBlur = preference(
+        key = floatPreferencesKey(name = "folder_blur"),
+        defaultValue = 0f,
+        onSet = { reloadHelper.reloadGrid() },
+    )
+
+    val drawerFolderBlur = preference(
+        key = floatPreferencesKey(name = "drawer_folder_blur"),
+        defaultValue = 0f,
         onSet = { reloadHelper.reloadGrid() },
     )
 

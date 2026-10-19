@@ -72,6 +72,18 @@ sealed class ColorOption {
         override fun toString() = "default"
     }
 
+    object Transparent : ColorOption() {
+        override val isSupported = true
+
+        override val colorPreferenceEntry = ColorPreferenceEntry<ColorOption>(
+            this,
+            { stringResource(id = R.string.transparent) },
+            { 0 },
+        )
+
+        override fun toString() = "transparent"
+    }
+
     companion object {
         val LawnchairBlue = CustomColor(0xFF007FFF)
 
@@ -79,6 +91,7 @@ sealed class ColorOption {
             "system_accent" -> SystemAccent
             "wallpaper_primary" -> WallpaperPrimary
             "default" -> Default
+            "transparent" -> Transparent
             else -> instantiateCustomColor(stringValue)
         }
 

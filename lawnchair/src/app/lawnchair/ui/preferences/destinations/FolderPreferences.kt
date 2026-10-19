@@ -64,14 +64,28 @@ fun FolderPreferences(
             SliderPreference(
                 label = stringResource(id = R.string.folder_preview_bg_opacity_label),
                 adapter = prefs2.folderPreviewBackgroundOpacity.getAdapter(),
-                step = 0.1F,
+                step = 0f,
                 valueRange = 0F..1F,
                 showAsPercentage = true,
             )
             SliderPreference(
                 label = stringResource(id = R.string.folder_bg_opacity_label),
                 adapter = prefs2.folderBackgroundOpacity.getAdapter(),
-                step = 0.1F,
+                step = 0f,
+                valueRange = 0F..1F,
+                showAsPercentage = true,
+            )
+            SliderPreference(
+                label = stringResource(id = R.string.home_screen_folder_blur_label),
+                adapter = prefs2.folderBlur.getAdapter(),
+                step = 0f,
+                valueRange = 0F..1F,
+                showAsPercentage = true,
+            )
+            SliderPreference(
+                label = stringResource(id = R.string.app_drawer_folder_blur_label),
+                adapter = prefs2.drawerFolderBlur.getAdapter(),
+                step = 0f,
                 valueRange = 0F..1F,
                 showAsPercentage = true,
             )

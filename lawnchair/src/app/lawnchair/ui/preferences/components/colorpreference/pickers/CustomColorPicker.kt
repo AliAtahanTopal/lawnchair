@@ -2,11 +2,12 @@ package app.lawnchair.ui.preferences.components.colorpreference.pickers
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.graphics.Color.argb
+import android.graphics.Color.rgb
 import android.widget.Toast
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,6 +53,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.alpha
 import androidx.core.graphics.blue
 import androidx.core.graphics.green
 import androidx.core.graphics.red
@@ -118,6 +120,7 @@ fun CustomColorPicker(
                     modifier = Modifier
                         .requiredSize(48.dp)
                         .clip(CircleShape)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                         .background(selectedColorCompose),
                 )
 
@@ -330,6 +333,7 @@ private fun HsvColorPicker(
                     hue = newHue ?: hue,
                     saturation = newSaturation ?: saturation,
                     brightness = newBrightness ?: brightness,
+                    alpha = selectedColor.alpha,
                 ),
             )
         }
@@ -359,7 +363,7 @@ private fun HsvColorPicker(
         val latestOnSelectedColorChange by rememberUpdatedState(onSelectedColorChange)
         LaunchedEffect(key1 = selectedColor) {
             if (selectedColor ==
-                hsvValuesToIntColor(hue, saturation, brightness)
+                hsvValuesToIntColor(hue, saturation, brightness, selectedColor.alpha)
             ) {
                 return@LaunchedEffect
             }
@@ -399,8 +403,7 @@ private fun RgbColorPicker(
             if (newBlue != null) blue = newBlue
 
             onSliderValuesChange(
-                argb(
-                    255,
+                rgb(
                     newRed ?: red,
                     newGreen ?: green,
                     newBlue ?: blue,
