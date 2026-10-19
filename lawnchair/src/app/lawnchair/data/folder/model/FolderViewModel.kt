@@ -1,19 +1,21 @@
-﻿package app.lawnchair.data.folder.model
+package app.lawnchair.data.folder.model
 
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.lawnchair.data.folder.FolderEntry
 import app.lawnchair.data.folder.service.FolderService
 import app.lawnchair.preferences2.ReloadHelper
 import com.android.launcher3.LauncherAppState
 import com.android.launcher3.model.data.AppInfo
 import com.android.launcher3.model.data.FolderInfo
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -22,7 +24,7 @@ class FolderViewModel(
 ) : AndroidViewModel(application) {
     private val repository: FolderService = FolderService.INSTANCE.get(application)
 
-    val folders: StateFlow<List<FolderInfo>> = repository.getFoldersFlow()
+    val folders: StateFlow<List<FolderEntry>?> = repository.getFoldersFlow()
         .distinctUntilChanged()
         .catch { exception ->
             Log.e("FolderViewModel", "Error in folders flow", exception)
@@ -31,35 +33,49 @@ class FolderViewModel(
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList(),
+            initialValue = null,
         )
 
-    val folderInfo: StateFlow<FolderInfo?>
-        field = MutableStateFlow<FolderInfo?>(null)
+    val allFolderPackages: StateFlow<Set<String>?> = folders
+        .map { folderList ->
+            folderList?.flatMap { folder -> folder.itemComponentKeys }
+                ?.map { key -> key.substringBefore("/") }
+                ?.toSet()
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null,
+        )
 
     private val reloadHelper = ReloadHelper(application)
 
-    // yeah these should be separate UI actions
-    fun setFolderInfo(folderInfoId: Int, hasId: Boolean) {
+    fun getFolderFlowForId(folderId: Int): Flow<FolderEntry?> {
+        return folders.map { list -> list?.find { it.id == folderId } }
+    }
+
+    fun renameFolder(folderId: Int, title: String) {
         viewModelScope.launch {
-            folderInfo.value = repository.getFolderInfo(folderInfoId, hasId)
+            repository.renameFolderInfo(folderId, title)
+            reloadHelper.reloadGrid()
         }
     }
 
     fun renameFolder(folderInfo: FolderInfo, hide: Boolean) {
         viewModelScope.launch {
             repository.updateFolderInfo(folderInfo, hide)
+            reloadHelper.reloadGrid()
         }
-        reloadHelper.reloadGrid()
     }
 
-    fun updateFolderItems(id: Int, title: String, appInfos: List<AppInfo>) {
+    fun updateFolderItems(id: Int, title: String, componentKeys: List<String>) {
         viewModelScope.launch {
-            repository.updateFolderWithItems(id, title, appInfos)
+            repository.updateFolderWithItems(id, title, componentKeys)
 
             // Sync to home screen folders
-            val model = LauncherAppState.getInstance(getApplication()).model
-            model.enqueueModelUpdateTask { taskController, dataModel, _ ->
+            val appState = LauncherAppState.getInstance(getApplication())
+            val model = appState.model
+            model.enqueueModelUpdateTask { taskController, dataModel, allApps ->
                 val foldersToUpdate = dataModel.itemsIdMap.filterIsInstance<FolderInfo>()
                     .filter { it.syncId == id }
 
@@ -74,12 +90,18 @@ class FolderViewModel(
                     homeFolder.getContents().clear()
 
                     // Add new contents
-                    appInfos.forEachIndexed { index, app ->
-                        val item = app.makeWorkspaceItem(getApplication())
-                        item.rank = index
-                        item.container = homeFolder.id
-                        homeFolder.add(item)
-                        modelWriter.addItemToDatabase(item, homeFolder.id, 0, 0, 0)
+                    componentKeys.forEachIndexed { index, keyString ->
+                        val componentKey = com.android.launcher3.util.ComponentKey.fromString(keyString) ?: return@forEachIndexed
+                        val app = allApps.data.find {
+                            it.componentName == componentKey.componentName && it.user == componentKey.user
+                        }
+                        val item = app?.makeWorkspaceItem(appState.context)
+                        if (item != null) {
+                            item.rank = index
+                            item.container = homeFolder.id
+                            homeFolder.add(item)
+                            modelWriter.addItemToDatabase(item, homeFolder.id, 0, 0, 0)
+                        }
                     }
                     modelWriter.updateItemInDatabase(homeFolder)
                 }
@@ -88,8 +110,13 @@ class FolderViewModel(
                 }
             }
 
-            folderInfo.value = repository.getFolderInfo(id, true)
             reloadHelper.reloadGrid()
+        }
+    }
+
+    fun createFolder(title: String) {
+        viewModelScope.launch {
+            repository.saveFolderInfo(title)
         }
     }
 
@@ -106,19 +133,10 @@ class FolderViewModel(
             reloadHelper.reloadGrid()
         }
     }
-}
 
-object FolderOrderUtils {
-    private const val DEFAULT_DELIMITER = ","
-
-    fun intListToString(list: List<Int>, delimiter: String = DEFAULT_DELIMITER): String {
-        return list.joinToString(delimiter)
-    }
-
-    fun stringToIntList(string: String, delimiter: String = DEFAULT_DELIMITER): List<Int> {
-        return string.takeIf { it.isNotBlank() }
-            ?.split(delimiter)
-            ?.mapNotNull { it.trim().toIntOrNull() }
-            ?: emptyList()
+    fun updateFolderOrder(orderedIds: List<Int>) {
+        viewModelScope.launch {
+            repository.updateFolderRanks(orderedIds)
+        }
     }
 }

@@ -20,6 +20,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import androidx.annotation.RequiresApi;
 import com.android.internal.protolog.ProtoLog;
 import com.android.internal.protolog.common.IProtoLogGroup;
 
@@ -27,6 +28,7 @@ import com.android.launcher3.Utilities;
 import java.util.UUID;
 
 /** Enums used to interface with the ProtoLog API. */
+@RequiresApi(31) // LC-Note: IProtoLogGroup only available to Android 11 Releases 41, or Android 12.0 for us. DO NOT call anything related to this or ProtoLog 
 public enum QuickstepProtoLogGroup implements IProtoLogGroup {
 
     ACTIVE_GESTURE_LOG(true, true, Constants.DEBUG_ACTIVE_GESTURE, "ActiveGestureLog"),

@@ -111,12 +111,12 @@ import java.util.Locale;
 import java.util.Objects;
 
 import app.lawnchair.preferences2.PreferenceCacheExtensionsKt;
-import app.lawnchair.LawnchairApp;
 import app.lawnchair.font.FontManager;
 import app.lawnchair.gestures.IconGestureListener;
 import app.lawnchair.preferences.PreferenceManager;
 import app.lawnchair.preferences2.PreferenceManager2;
 import app.lawnchair.util.LawnchairUtilsKt;
+import app.lawnchair.animation.PhysicsAnimator;
 
 /**
  * TextView that draws a bubble behind the text. We cannot use a LineBackgroundSpan
@@ -505,7 +505,7 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
         setTag(itemInfo);
         // Lawnchair: Icon swipe gesture feature
         mGestureListener = shouldSupportIconSwipeGestures()
-                ? new IconGestureListener(getContext(), pref2, itemInfo.getComponentKey())
+                ? new IconGestureListener(this, pref2, itemInfo.getComponentKey())
                 : null;
     }
 
@@ -577,7 +577,8 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
     }
 
     public boolean shouldUseTheme() {
-        if (mDisplay == DISPLAY_ALL_APPS || mDisplay == DISPLAY_DRAWER_FOLDER) {
+        if (mDisplay == DISPLAY_ALL_APPS || mDisplay == DISPLAY_DRAWER_FOLDER
+                || mDisplay == DISPLAY_PREDICTION_ROW) {
             return PreferenceManager.getInstance(getContext()).getDrawerThemedIcons().get();
         }
         return mDisplay == DISPLAY_WORKSPACE || mDisplay == DISPLAY_FOLDER
@@ -1378,7 +1379,7 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
             mDotInfo = mActivity.getDotInfoForItem(itemInfo);
             boolean isDotted = mDotInfo != null;
             float newDotScale = isDotted ? 1f : 0;
-            if (mDisplay == DISPLAY_ALL_APPS) {
+            if (mDisplay == DISPLAY_ALL_APPS || mDisplay == DISPLAY_PREDICTION_ROW) {
                 mDotRenderer = mActivity.getDeviceProfile().mDotRendererAllApps;
             } else {
                 mDotRenderer = mActivity.getDeviceProfile().mDotRendererWorkSpace;
@@ -1606,6 +1607,10 @@ public class BubbleTextView extends TextView implements ItemInfoUpdateReceiver,
         if (mIcon != null) {
             mIcon.resetScale();
         }
+        // LC-Note: Cancel physics animator for icon swipe gesture
+        PhysicsAnimator.getInstance(this).cancel();
+        setTranslationX(0);
+        setTranslationY(0);
     }
 
     private void updateIcon(Drawable newIcon) {

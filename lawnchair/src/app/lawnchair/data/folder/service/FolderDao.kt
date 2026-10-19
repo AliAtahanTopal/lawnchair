@@ -1,4 +1,4 @@
-﻿package app.lawnchair.data.folder.service
+package app.lawnchair.data.folder.service
 
 import androidx.room.Dao
 import androidx.room.Embedded
@@ -28,38 +28,64 @@ interface FolderDao {
     @Transaction
     suspend fun getFolderWithItems(folderId: Int): FolderWithItems?
 
-    @Query("SELECT * FROM FolderItems WHERE folderId IS NOT :folderId")
-    @Transaction
-    suspend fun getItems(folderId: Int): List<FolderItemEntity>
+    @Query("SELECT id FROM Folders ORDER BY rank ASC")
+    suspend fun getAllFolderIds(): List<Int>
 
-    @Query("SELECT * FROM Folders")
-    fun getAllFolders(): Flow<List<FolderInfoEntity>>
-
+    @Query("SELECT * FROM Folders ORDER BY rank ASC")
     @Transaction
-    suspend fun insertFolderWithItems(folder: FolderInfoEntity, items: List<FolderItemEntity>) {
-        insertFolder(folder)
-        insertFolderItems(items)
-    }
+    fun getAllFoldersWithItems(): Flow<List<FolderWithItems>>
+
+    @Query("SELECT MAX(rank) FROM Folders")
+    suspend fun getMaxFolderRank(): Int?
 
     @Query("DELETE FROM FolderItems WHERE folderId = :folderId")
     suspend fun deleteFolderItemsByFolderId(folderId: Int)
 
+    @Query("UPDATE Folders SET title = :title, timestamp = :timestamp WHERE id = :id")
+    suspend fun updateFolderTitle(id: Int, title: String, timestamp: Long = System.currentTimeMillis())
+
+    @Transaction
+    suspend fun replaceFolderItems(folderId: Int, title: String, items: List<FolderItemEntity>) {
+        updateFolderTitle(folderId, title)
+        deleteFolderItemsByFolderId(folderId)
+        insertFolderItems(items.map { it.copy(folderId = folderId) })
+    }
+
     @Query(
         value = """
                 UPDATE Folders
-                SET title = :newTitle, hide = :hide, timestamp = :timestamp
+                SET hide = :hide, timestamp = :timestamp
                 WHERE id = :folderId
             """,
     )
-    suspend fun updateFolderInfo(
+    suspend fun setFolderHidden(
         folderId: Int,
-        newTitle: String,
         hide: Boolean,
         timestamp: Long = System.currentTimeMillis(),
     )
 
+    @Transaction
+    suspend fun updateFolderInfo(folderId: Int, title: String, hide: Boolean) {
+        updateFolderTitle(folderId, title)
+        setFolderHidden(folderId, hide)
+    }
+
     @Query("DELETE FROM Folders WHERE id = :folderId")
     suspend fun deleteFolder(folderId: Int)
+
+    @Query("UPDATE Folders SET rank = :rank WHERE id = :id")
+    suspend fun updateFolderRank(id: Int, rank: Int)
+
+    @Transaction
+    suspend fun updateFolderRanks(orderedIds: List<Int>) {
+        val currentIds = getAllFolderIds().toSet()
+        if (orderedIds.size != currentIds.size || orderedIds.toSet() != currentIds) {
+            return
+        }
+        orderedIds.forEachIndexed { index, id ->
+            updateFolderRank(id, index)
+        }
+    }
 
     @RawQuery
     suspend fun checkpoint(supportSQLiteQuery: SupportSQLiteQuery): Int

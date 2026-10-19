@@ -110,6 +110,7 @@ import com.android.launcher3.logger.LauncherAtom.FromState;
 import com.android.launcher3.logger.LauncherAtom.ToState;
 import com.android.launcher3.logging.StatsLogManager;
 import com.android.launcher3.logging.StatsLogManager.StatsLogger;
+import com.android.launcher3.model.ModelWriter;
 import com.android.launcher3.model.data.FolderInfo;
 import com.android.launcher3.model.data.ItemInfo;
 import com.android.launcher3.model.data.WorkspaceItemFactory;
@@ -339,6 +340,7 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
         final int paddingLeftRight = dp.folderContentPaddingLeftRight;
 
         mBackground = DrawableTokens.RoundRectFolder.resolve(getContext());
+        mBackground.setColor(LawnchairUtilsKt.resolveFolderBackgroundColor(getContext()));
         var alpha = LawnchairUtilsKt.getFolderBackgroundAlpha(getContext());
         mBackground.setAlpha(alpha);
 
@@ -536,6 +538,17 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
                 || mInfo.container == LauncherSettings.Favorites.CONTAINER_ALL_APPS_PREDICTION;
     }
 
+    /**
+     * LC: App drawer folders live in Lawnchair's own database and are not part of the
+     * launcher model, so writing them through ModelWriter can collide with an unrelated
+     * workspace item sharing the same id and crash in checkItemInfoLocked (#7127).
+     * Returns null for drawer folders so callers only update the in-memory state.
+     */
+    @Nullable
+    private ModelWriter getModelWriter() {
+        return isInAppDrawer() ? null : mActivityContext.getModelWriter();
+    }
+
     @Override
     public void onDragEnd() {
         if (mIsExternalDrag && mIsDragInProgress) {
@@ -559,7 +572,7 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
         if (DEBUG) {
             Log.d(TAG, "onBackKey newTitle=" + newTitle);
         }
-        mInfo.setTitle(newTitle, mActivityContext.getModelWriter());
+        mInfo.setTitle(newTitle, getModelWriter());
         mFolderIcon.onTitleChanged(newTitle);
         if (mInfo.getSyncId() != 0) {
             FolderService.INSTANCE.get(getContext()).syncFolder(mInfo);
@@ -926,7 +939,7 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
 
                     if (updateAnimationFlag) {
                         mInfo.setOption(FolderInfo.FLAG_MULTI_PAGE_ANIMATION, true,
-                                mActivityContext.getModelWriter());
+                                getModelWriter());
                     }
                 }
             });
@@ -1100,12 +1113,15 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
         mActivityContext.getDragController().removeDropTarget(this);
         clearFocus();
         if (mFolderIcon != null) {
+            // Settle first-page preview before revealing the icon to avoid a rearrange flash.
+            if (wasAnimated) {
+                mFolderIcon.onFolderClose(mContent.getCurrentPage());
+            }
             mFolderIcon.setVisibility(View.VISIBLE);
             mFolderIcon.setIconVisible(true);
             mFolderIcon.mFolderName.setTextVisibility(true);
             if (wasAnimated) {
                 mFolderIcon.animateBgShadowAndStroke();
-                mFolderIcon.onFolderClose(mContent.getCurrentPage());
                 if (mFolderIcon.hasDot()) {
                     mFolderIcon.animateDotScale(0f, 1f);
                 }
@@ -1152,11 +1168,21 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
         }
         SCALE_PROPERTY.set(launcher.getWorkspace(), 1f);
         SCALE_PROPERTY.set(launcher.getHotseat(), 1f);
+        // Clear any stuck workspace/hotseat RenderEffect if we are not in a depth-blur state.
+        // Expressive folder open/close can race with All Apps depth blur and leave icons blurred.
+        if (Utilities.ATLEAST_S
+                && launcher.getStateManager().getState().getDepth(launcher) == 0f) {
+            for (View target : launcher.getDepthBlurTargets()) {
+                target.setRenderEffect(null);
+            }
+        }
     }
 
     @Override
     public boolean acceptDrop(DragObject d) {
-        return willAcceptItemType(d.dragInfo.itemType);
+        // LC: App drawer folders are not backed by the launcher model, so dropping
+        // into them would write through ModelWriter and crash (#7127).
+        return !isInAppDrawer() && willAcceptItemType(d.dragInfo.itemType);
     }
 
     public void onDragEnter(DragObject d) {
@@ -1354,7 +1380,7 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
         if (getItemCount() <= mContent.itemsPerPage()) {
             // Show the animation, next time something is added to the folder.
             mInfo.setOption(FolderInfo.FLAG_MULTI_PAGE_ANIMATION, false,
-                    mActivityContext.getModelWriter());
+                    getModelWriter());
         }
     }
 
@@ -1372,7 +1398,7 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
             }
         }
 
-        if (!items.isEmpty()) {
+        if (!items.isEmpty() && !isInAppDrawer()) {
             mActivityContext.getModelWriter().moveItemsInDatabase(items, mInfo.id, 0);
         }
         if (!isBind && total > 1 /* no need to update if there's one icon */) {
@@ -1392,7 +1418,7 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
     }
 
     public boolean isDropEnabled() {
-        return mState != STATE_ANIMATING;
+        return mState != STATE_ANIMATING && !isInAppDrawer();
     }
 
     private void centerAboutIcon() {
@@ -1661,7 +1687,7 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
         if (mContent.getPageCount() > 1) {
             // The animation has already been shown while opening the folder.
             mInfo.setOption(FolderInfo.FLAG_MULTI_PAGE_ANIMATION, true,
-                    mActivityContext.getModelWriter());
+                    getModelWriter());
         }
 
         if (!launcher.isInState(EDIT_MODE)) {
