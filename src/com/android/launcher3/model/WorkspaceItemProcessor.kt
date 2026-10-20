@@ -146,6 +146,22 @@ class WorkspaceItemProcessor(
 
         val info = c.loadSimpleWorkspaceItem()
 
+        val overrideKey = com.android.launcher3.util.ComponentKey(
+            intent.component ?: ComponentName(context.packageName, "Shortcut_${c.id}"),
+            c.user,
+        )
+        val overrideItem = app.lawnchair.data.iconoverride.IconOverrideRepository.INSTANCE.get(context)
+            .overridesMap[overrideKey]
+        if (overrideItem != null) {
+            val customDrawable = app.lawnchair.icons.iconpack.IconPackProvider.INSTANCE.get(context)
+                .getDrawable(overrideItem.toIconEntry(), idp.fillResIconDpi, c.user)
+            if (customDrawable != null) {
+                com.android.launcher3.icons.LauncherIcons.obtain(context).use { li ->
+                    info.bitmap = li.createBadgedIconBitmap(customDrawable)
+                }
+            }
+        }
+
         // LC-Note: Show badge for legacy shortcut when possible
         val launchPackage = intent.component?.packageName ?: intent.`package`
         if (!launchPackage.isNullOrEmpty()) {

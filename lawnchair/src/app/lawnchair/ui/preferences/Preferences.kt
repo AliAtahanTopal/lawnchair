@@ -43,6 +43,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.window.layout.DisplayFeature
 import app.lawnchair.ui.preferences.destinations.PreferencesDashboard
 import app.lawnchair.ui.preferences.navigation.General
+import app.lawnchair.ui.preferences.navigation.GesturesPickActivity
+import app.lawnchair.ui.preferences.navigation.GesturesPickApp
 import app.lawnchair.ui.preferences.navigation.IconPicker
 import app.lawnchair.ui.preferences.navigation.PreferenceNavigation
 import app.lawnchair.ui.preferences.navigation.PreferenceRootRoute
@@ -68,6 +70,8 @@ val LocalIsExpandedScreen = compositionLocalOf { false }
 val twoPaneBlacklist = setOf(
     IconPicker::class,
     SelectIcon::class,
+    GesturesPickApp::class,
+    GesturesPickActivity::class,
 )
 
 @Composable

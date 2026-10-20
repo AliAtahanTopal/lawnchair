@@ -57,7 +57,7 @@ class LauncherAppWidgetHost extends ListenableAppWidgetHost {
     public LauncherAppWidgetHostView onCreateView(Context context, int appWidgetId,
             AppWidgetProviderInfo appWidget) {
         ListenableHostView result =
-                mViewToRecycle != null ? mViewToRecycle : new ListenableHostView(context);
+                mViewToRecycle != null ? mViewToRecycle : new LawnchairAppWidgetHostView(context);
         mViewToRecycle = null;
         return result;
     }

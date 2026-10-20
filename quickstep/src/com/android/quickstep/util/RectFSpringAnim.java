@@ -421,8 +421,17 @@ public class RectFSpringAnim extends ReleaseCheck {
         if (!mOnUpdateListeners.isEmpty()) {
             float currentWidth = Utilities.mapRange(mCurrentScaleProgress, mStartRect.width(),
                     mTargetRect.width());
-            float currentHeight = Utilities.mapRange(mCurrentScaleProgress, mStartRect.height(),
+            float startAspect = mStartRect.width() > 0
+                    ? mStartRect.height() / mStartRect.width() : 1f;
+            float screenAspectHeight = currentWidth * startAspect;
+            float linearHeight = Utilities.mapRange(mCurrentScaleProgress, mStartRect.height(),
                     mTargetRect.height());
+            // Preserve the phone screen's aspect ratio as the window shrinks, morphing into the
+            // target icon's square aspect ratio in the final portion of the close animation.
+            float morphProgress = Utilities.boundToRange(
+                    (mCurrentScaleProgress - 0.55f) / 0.45f, 0f, 1f);
+            float currentHeight = Utilities.mapRange(morphProgress, screenAspectHeight,
+                    linearHeight);
             switch (mTracking) {
                 case TRACKING_TOP:
                     mCurrentRect.set(mCurrentCenterX - currentWidth / 2,

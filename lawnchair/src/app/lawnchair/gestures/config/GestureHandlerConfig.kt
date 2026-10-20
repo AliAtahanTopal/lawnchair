@@ -174,10 +174,28 @@ sealed class GestureHandlerConfig {
                         Icon.createWithBitmap(appInfo.bitmap.icon)
                     }
                 }
+                is OpenAppTarget.Activity -> {
+                    val fallback = Icon.createWithResource(context, iconRes)
+                    val componentName = target.key.componentName
+                    val pm = context.packageManager
+                    return try {
+                        val activityInfo = pm.getActivityInfo(componentName, 0)
+                        val drawable = activityInfo.loadIcon(pm) ?: pm.getApplicationIcon(componentName.packageName)
+                        val width = drawable.intrinsicWidth.coerceAtLeast(1)
+                        val height = drawable.intrinsicHeight.coerceAtLeast(1)
+                        val bitmap = createBitmap(width, height)
+                        val canvas = Canvas(bitmap)
+                        drawable.setBounds(0, 0, canvas.width, canvas.height)
+                        drawable.draw(canvas)
+                        Icon.createWithBitmap(bitmap)
+                    } catch (e: Exception) {
+                        fallback
+                    }
+                }
             }
         }
 
-        override fun isExternallyInvokable() = target is OpenAppTarget.App
+        override fun isExternallyInvokable() = target is OpenAppTarget.App || target is OpenAppTarget.Activity
 
         override fun getDisplayLabel(context: Context) = appName
         override fun getLabel(context: Context) = context.getString(R.string.gesture_handler_open_app_config, appName)

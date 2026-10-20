@@ -146,15 +146,23 @@ public class ShortcutAndWidgetContainer extends ViewGroup implements FolderIcon.
 
     public void setupLp(View child) {
         CellLayoutLayoutParams lp = (CellLayoutLayoutParams) child.getLayoutParams();
-        if (child instanceof NavigableAppWidgetHostView) {
+        if (child instanceof NavigableAppWidgetHostView nahv) {
             DeviceProfile profile = mActivity.getDeviceProfile();
             final PointF appWidgetScale = profile.getAppWidgetScale((ItemInfo) child.getTag());
+            Rect widgetPadding = isActivityShortcutWidget(nahv) ? null : profile.widgetPadding;
             lp.setup(mCellWidth, mCellHeight, invertLayoutHorizontally(), mCountX, mCountY,
-                    appWidgetScale.x, appWidgetScale.y, mBorderSpace, profile.widgetPadding);
+                    appWidgetScale.x, appWidgetScale.y, mBorderSpace, widgetPadding);
         } else {
             lp.setup(mCellWidth, mCellHeight, invertLayoutHorizontally(), mCountX, mCountY,
                     mBorderSpace);
         }
+    }
+
+    private boolean isActivityShortcutWidget(NavigableAppWidgetHostView hostView) {
+        if (hostView.getAppWidgetInfo() == null) return false;
+        android.content.ComponentName provider = hostView.getAppWidgetInfo().provider;
+        return app.lawnchair.widget.ActivityShortcutWidgetProvider.componentName.equals(provider)
+                || app.lawnchair.widget.ActivityPillWidgetProvider.componentName.equals(provider);
     }
 
     // Set whether or not to invert the layout horizontally if the layout is in RTL
@@ -172,10 +180,11 @@ public class ShortcutAndWidgetContainer extends ViewGroup implements FolderIcon.
         CellLayoutLayoutParams lp = (CellLayoutLayoutParams) child.getLayoutParams();
         final DeviceProfile dp = mActivity.getDeviceProfile();
 
-        if (child instanceof NavigableAppWidgetHostView) {
+        if (child instanceof NavigableAppWidgetHostView nahv) {
             final PointF appWidgetScale = dp.getAppWidgetScale((ItemInfo) child.getTag());
+            Rect widgetPadding = isActivityShortcutWidget(nahv) ? null : dp.widgetPadding;
             lp.setup(mCellWidth, mCellHeight, invertLayoutHorizontally(), mCountX, mCountY,
-                    appWidgetScale.x, appWidgetScale.y, mBorderSpace, dp.widgetPadding);
+                    appWidgetScale.x, appWidgetScale.y, mBorderSpace, widgetPadding);
         } else if (isChildQsb(child)) {
             lp.setup(mCellWidth, mCellHeight, invertLayoutHorizontally(), mCountX, mCountY,
                     mBorderSpace);

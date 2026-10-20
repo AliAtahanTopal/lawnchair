@@ -1595,24 +1595,66 @@ public class QuickstepLauncher extends Launcher implements RecentsViewContainer,
     public View getFirstVisibleElementForAppClose(
             @Nullable StableViewInfo svi, String packageName, UserHandle user) {
         if (isInState(LauncherState.ALL_APPS)) {
+            final java.util.function.Predicate<ItemInfo> preferredItem =
+                    svi == null ? i -> false : svi::matches;
+            final java.util.function.Predicate<ItemInfo> packageAndUserAndApp = info -> info != null
+                    && info.itemType == ITEM_TYPE_APPLICATION
+                    && info.user.equals(user)
+                    && TextUtils.equals(info.getTargetPackage(), packageName);
+
+            // Check open folder in app drawer first
+            com.android.launcher3.folder.Folder folder =
+                    com.android.launcher3.folder.Folder.getOpen(this);
+            if (folder != null) {
+                View folderItem = folder.getFirstMatch(preferredItem, packageAndUserAndApp);
+                if (folderItem != null) {
+                    return folderItem;
+                }
+            }
+
             AllAppsRecyclerView activeRecyclerView = getAppsView().getActiveRecyclerView();
             View v = null;
             if (svi != null) {
-                // Preferred item match
+                // Preferred item match in recyclerView or prediction header
                 v = activeRecyclerView.findViewByPredicate(view ->
                         view.isAggregatedVisible()
                                 && view.getTag() instanceof ItemInfo info && svi.matches(info));
+                if (v == null && getAppsView().getFloatingHeaderView() != null) {
+                    v = Utilities.findViewByPredicate(getAppsView().getFloatingHeaderView(), view ->
+                            view.isAggregatedVisible()
+                                    && view.getTag() instanceof ItemInfo info && svi.matches(info));
+                }
+            }
+            if (v == null && getAppsView().getFloatingHeaderView() != null) {
+                // Check prediction row if visible and not scrolled out
+                PredictionRowView<?> predictionRow =
+                        getAppsView().getFloatingHeaderView().findFixedRowByType(
+                                PredictionRowView.class);
+                if (predictionRow != null && predictionRow.isVisible()
+                        && predictionRow.getAlpha() > 0f) {
+                    v = Utilities.findViewByPredicate(predictionRow, view ->
+                            view.isAggregatedVisible()
+                                    && view.getTag() instanceof ItemInfo info
+                                    && packageAndUserAndApp.test(info));
+                }
             }
             if (v == null) {
-                // Package user match
+                // Package user match in recyclerView
                 v = activeRecyclerView.findViewByPredicate(view ->
                         view.isAggregatedVisible() && view.getTag() instanceof ItemInfo info
-                                && info.itemType == ITEM_TYPE_APPLICATION
-                                && info.user.equals(user)
-                                && TextUtils.equals(info.getTargetPackage(), packageName));
+                                && packageAndUserAndApp.test(info));
+            }
+            if (v == null) {
+                // Match folder icon in recyclerView containing the app
+                v = activeRecyclerView.findViewByPredicate(view ->
+                        view.isAggregatedVisible()
+                                && view.getTag() instanceof com.android.launcher3.model.data.FolderInfo folderInfo
+                                && folderInfo.getContents().stream().anyMatch(
+                                        preferredItem.or(packageAndUserAndApp)));
             }
 
-            if (v != null && activeRecyclerView.computeVerticalScrollOffset() > 0) {
+            if (v != null && activeRecyclerView.computeVerticalScrollOffset() > 0
+                    && v.getParent() == activeRecyclerView) {
                 RectF locationBounds = new RectF();
                 FloatingIconView.getLocationBoundsForView(this, v, false, locationBounds,
                         new Rect());

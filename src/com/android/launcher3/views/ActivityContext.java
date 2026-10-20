@@ -475,7 +475,19 @@ public interface ActivityContext extends SavedStateRegistryOwner {
         // Prepare intent
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         if (v != null) {
-            intent.setSourceBounds(Utilities.getViewBounds(v));
+            if (this instanceof com.android.launcher3.Launcher launcher) {
+                android.graphics.RectF iconRectF = new android.graphics.RectF();
+                com.android.launcher3.views.FloatingIconView.getLocationBoundsForView(
+                        launcher, v, true, iconRectF, new Rect());
+                int[] dragLayerPos = new int[2];
+                launcher.getDragLayer().getLocationOnScreen(dragLayerPos);
+                iconRectF.offset(dragLayerPos[0], dragLayerPos[1]);
+                Rect iconScreenBounds = new Rect();
+                iconRectF.round(iconScreenBounds);
+                intent.setSourceBounds(iconScreenBounds);
+            } else {
+                intent.setSourceBounds(Utilities.getViewBounds(v));
+            }
         }
         try {
             if (isShortcut) {

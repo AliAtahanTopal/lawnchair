@@ -1613,6 +1613,9 @@ public class Launcher extends StatefulActivity<LauncherState>
                 && AbstractFloatingView.getTopOpenView(this) == null;
         boolean isActionMain = Intent.ACTION_MAIN.equals(intent.getAction());
         boolean internalStateHandled = ACTIVITY_TRACKER.handleNewIntent(this);
+        boolean hasGestureNavContract = isActionMain
+                && !LawnchairApp.isRecentsEnabled()
+                && GestureNavContract.canBuildFromIntent(intent);
 
         logOnNewIntent(alreadyOnHome, shouldMoveToDefaultScreen, intent.getAction(),
                 internalStateHandled);
@@ -1624,10 +1627,13 @@ public class Launcher extends StatefulActivity<LauncherState>
                 if (intent.getBooleanExtra(EXCLUDE_CLOSE_WIDGET_PICKER, false)) {
                     excludedViews |= TYPE_WIDGETS_FULL_SHEET;
                 }
+                if (hasGestureNavContract) {
+                    excludedViews |= TYPE_FOLDER;
+                }
                 AbstractFloatingView.closeAllOpenViewsExcept(this, isStarted(), excludedViews);
 
 
-                if (!isInState(NORMAL)) {
+                if (!isInState(NORMAL) && !hasGestureNavContract) {
                     // Only change state, if not already the same. This prevents cancelling any
                     // animations running as part of resume
                     boolean animate = mStateManager.shouldAnimateStateChange();
@@ -1638,11 +1644,12 @@ public class Launcher extends StatefulActivity<LauncherState>
                 }
 
                 // Reset the apps view
-                if (!alreadyOnHome) {
+                if (!alreadyOnHome && !hasGestureNavContract) {
                     mAppsView.reset(isStarted() /* animate */);
                 }
 
-                if (shouldMoveToDefaultScreen && !mWorkspace.isHandlingTouch()) {
+                if (shouldMoveToDefaultScreen && !mWorkspace.isHandlingTouch()
+                        && !hasGestureNavContract) {
                     if (mWorkspace.getNextPage() != mWorkspace.getDefaultPage()) {
                         mWorkspace.post(mWorkspace::moveToDefaultScreen);
                     } else {

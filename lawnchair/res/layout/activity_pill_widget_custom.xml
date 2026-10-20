@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<app.lawnchair.widget.ActivityPillWidgetView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/activity_pill_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:clipChildren="false"
+    android:clipToPadding="false">
+
+    <LinearLayout
+        android:id="@+id/activity_pill_container"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp">
+
+        <ImageView
+            android:id="@+id/activity_pill_icon"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:importantForAccessibility="no"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_finder_gradient" />
+
+        <TextView
+            android:id="@+id/activity_pill_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:singleLine="true"
+            android:text="@string/activity_pill_widget_default_title"
+            android:textColor="#D91C1C1E"
+            android:textSize="16sp"
+            app:customFontType="@id/font_body_medium" />
+    </LinearLayout>
+</app.lawnchair.widget.ActivityPillWidgetView>
+

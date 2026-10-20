@@ -91,7 +91,6 @@ private fun checkGenericVFirstQuarterlyRelease(): Boolean = when {
 private fun checkGestureNavContract(): Boolean = when {
     !Utilities.ATLEAST_Q -> false
     checkOnePlusStock() -> false
-    checkSamsungStock() -> false
     checkXiaomiStock() -> false
     checkHuaweiHonorStock() -> false
     checkOppoStock() -> false

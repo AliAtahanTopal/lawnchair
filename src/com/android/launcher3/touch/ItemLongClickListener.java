@@ -32,6 +32,7 @@ import android.view.View.OnLongClickListener;
 import com.android.launcher3.DragSource;
 import com.android.launcher3.DropTarget;
 import com.android.launcher3.Launcher;
+import com.android.launcher3.LauncherSettings.Favorites;
 import com.android.launcher3.celllayout.CellInfo;
 import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.dragndrop.DragController;
@@ -159,8 +160,10 @@ public class ItemLongClickListener {
                 return false;
             }
             dragInfo = itemInfo;
-            if (dragInfo instanceof FolderInfo && dragInfo.container == ItemInfo.NO_ID) {
+            if (dragInfo instanceof FolderInfo && (dragInfo.container == ItemInfo.NO_ID
+                    || dragInfo.container == Favorites.CONTAINER_ALL_APPS)) {
                 dragInfo = dragInfo.makeShallowCopy();
+                dragInfo.id = ItemInfo.NO_ID;
             }
             logger.withItemInfo(dragInfo);
         }

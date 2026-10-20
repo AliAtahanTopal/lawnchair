@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<app.lawnchair.widget.ActivityShortcutWidgetView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/activity_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:gravity="top|center_horizontal"
+    android:orientation="vertical"
+    android:padding="0dp">
+
+    <ImageView
+        android:id="@+id/activity_widget_icon"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="center_horizontal"
+        android:importantForAccessibility="no"
+        android:scaleType="fitCenter"
+        android:src="@mipmap/ic_launcher_home" />
+
+    <TextView
+        android:id="@+id/activity_widget_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:gravity="center_horizontal"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:singleLine="true"
+        android:text="@string/activity_shortcut_widget_label"
+        android:textColor="@android:color/white"
+        android:textSize="12sp"
+        app:customFontType="@id/font_base_icon" />
+</app.lawnchair.widget.ActivityShortcutWidgetView>

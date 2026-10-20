@@ -327,6 +327,10 @@
     <string name="icon_pack_external_picker">Open external picker</string>
     <string name="pick_icon_from_label">Pick icon from</string>
     <string name="icon_picker_load_failed">Couldn\'t load more icons</string>
+    <string name="custom_image_heading">Custom image</string>
+    <string name="pick_image_from_gallery">Choose image from gallery or files</string>
+    <string name="pick_image_reshape_label">Shape image to icon mask</string>
+    <string name="pick_image_reshape_description">Crop and mask the selected image to match your launcher icon shape</string>
 
     <!-- Icon shapes  -->
     <string name="icon_shape_system">System</string>
@@ -647,12 +651,33 @@
     <string name="gesture_handler_open_quick_settings">Open Quick Settings</string>
     <string name="gesture_handler_open_app_option">Open app</string>
     <string name="gesture_handler_open_app_config">Open %1$s</string>
+    <string name="gesture_handler_open_activity_option">Activities</string>
+    <string name="gesture_handler_open_activity_config">Open %1$s</string>
     <string name="gesture_handler_open_app_drawer">Open app drawer</string>
     <string name="gesture_handler_open_app_search">Open app search</string>
     <string name="gesture_handler_open_search">Open search</string>
     <string name="gesture_handler_open_assistant">Open assistant</string>
 
     <string name="pick_app_for_gesture">Pick app</string>
+    <string name="pick_activity">Pick activity</string>
+    <string name="activity_shortcut_widget_label">Activity</string>
+    <string name="activity_shortcut_widget_description">Resizable and customizable icon for any app activity or process</string>
+    <string name="activity_pill_widget_label">Activity pill</string>
+    <string name="activity_pill_widget_default_title">Finder</string>
+    <string name="activity_pill_widget_description">One UI Finder style pill widget for any app activity or process</string>
+    <string name="use_finder_search_icon">Use Finder search icon</string>
+    <string name="use_finder_search_icon_description">Display the gradient search icon instead of the activity icon</string>
+    <string name="match_search_bar_style">Match search bar style</string>
+    <string name="match_search_bar_style_desc">Mirror the Google search bar\'s background, opacity, and outline</string>
+    <string name="search_bar_surface_color">Search bar surface</string>
+    <string name="customize_activity_widget">Customize activity</string>
+    <string name="change_activity">Change activity</string>
+    <string name="show_label">Show label</string>
+    <string name="show_all_apps">Show all packages</string>
+    <plurals name="activities_count">
+        <item quantity="one">%1$d activity</item>
+        <item quantity="other">%1$d activities</item>
+    </plurals>
 
     <string name="dt2s_admin_hint_title">Admin permissions required</string>
     <string name="dt2s_admin_hint">To put the device to sleep, set Lawnchair as a device admin app. Tap \"Open settings\", then tap \"Activate this device admin app.\"</string>

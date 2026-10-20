@@ -31,8 +31,12 @@ import com.android.launcher3.icons.cache.CachingLogic
 import com.android.launcher3.shortcuts.ShortcutKey
 import com.android.launcher3.util.ApiWrapper
 import com.android.launcher3.util.ApplicationInfoWrapper
+import com.android.launcher3.util.ComponentKey
 import com.android.launcher3.util.PackageUserKey
 import com.android.launcher3.util.Themes
+import app.lawnchair.data.iconoverride.IconOverrideRepository
+import app.lawnchair.icons.iconpack.IconPackProvider
+import app.lawnchair.preferences.PreferenceManager
 
 /** Wrapper over ShortcutInfo to provide extra information related to ShortcutInfo */
 class CacheableShortcutInfo(val shortcutInfo: ShortcutInfo, val appInfo: ApplicationInfoWrapper) {
@@ -104,11 +108,17 @@ object CacheableShortcutCachingLogic : CachingLogic<CacheableShortcutInfo> {
 
     override fun loadIcon(context: Context, cache: BaseIconCache, info: CacheableShortcutInfo) =
         LauncherIcons.obtain(context).use { li ->
-            CacheableShortcutInfo.getIcon(
+            val key = ComponentKey(getComponent(info), getUser(info))
+            val overrideItem = IconOverrideRepository.INSTANCE.get(context).overridesMap[key]
+            val iconDpi = LauncherAppState.getIDP(context).fillResIconDpi
+            val customDrawable = overrideItem?.let {
+                IconPackProvider.INSTANCE.get(context).getDrawable(it.toIconEntry(), iconDpi, key.user)
+            }
+            (customDrawable ?: CacheableShortcutInfo.getIcon(
                     context,
                     info.shortcutInfo,
-                    LauncherAppState.getIDP(context).fillResIconDpi,
-                )
+                    iconDpi,
+                ))
                 ?.let { d ->
                     li.createBadgedIconBitmap(
                         d,

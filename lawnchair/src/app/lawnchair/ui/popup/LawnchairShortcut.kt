@@ -23,9 +23,14 @@ import androidx.compose.ui.unit.dp
 import app.lawnchair.LawnchairLauncher
 import app.lawnchair.override.CustomizeAppDialog
 import app.lawnchair.override.CustomizeFolderDialog
+import app.lawnchair.override.CustomizeWorkspaceShortcutDialog
 import app.lawnchair.preferences2.PreferenceManager2
+import com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_DEEP_SHORTCUT
 import com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_FOLDER
+import com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_SHORTCUT
 import com.android.launcher3.model.data.FolderInfo
+import com.android.launcher3.model.data.WorkspaceItemInfo
+import com.android.launcher3.shortcuts.ShortcutKey
 import app.lawnchair.preferences2.firstCached
 import app.lawnchair.ui.preferences.PreferenceActivity
 import app.lawnchair.ui.preferences.navigation.AppDrawerAppListToFolder
@@ -54,42 +59,18 @@ class LawnchairShortcut {
 
     companion object {
 
-        fun showAppDrawerFolderPopup(
-            launcher: LawnchairLauncher,
-            folderIcon: FolderIcon,
-        ): Boolean {
-            val folderId = folderIcon.mInfo.id
-            if (folderId == ItemInfo.NO_ID) return false
-
-            val bounds = Rect()
-            launcher.dragLayer.getDescendantRectRelativeToSelf(folderIcon, bounds)
-            // Unlike regular app, folder does not have any code that would allow it to be showing
-            // any popup we have to create our own.
-            //
-            // In the future we should perhaps move this entire code to a dedicated file like
-            // LawnchairFolderShortcut.kt
-            return OptionsPopupView.show<LawnchairLauncher>(
-                launcher,
-                RectF(bounds),
-                listOf(
-                    OptionsPopupView.OptionItem(
-                        launcher,
-                        R.string.edit_folder,
-                        R.drawable.ic_edit,
-                        StatsLogManager.LauncherEvent.IGNORE,
-                    ) {
-                        launcher.startActivity(
-                            PreferenceActivity.createIntent(
-                                launcher,
-                                AppDrawerAppListToFolder(folderId),
-                            ),
-                        )
-                        true
-                    },
-                ),
-                true,
-            ) != null
-        }
+        val EDIT_DRAWER_FOLDER =
+            SystemShortcut.Factory { activity: ActivityContext, itemInfo, originalView ->
+                val launcher = activity.asContext() as? LawnchairLauncher ?: return@Factory null
+                if (itemInfo.itemType == ITEM_TYPE_FOLDER && itemInfo.container == ItemInfo.NO_ID) {
+                    val folderId = (itemInfo as? FolderInfo)?.syncId?.takeIf { it != ItemInfo.NO_ID && it != 0 }
+                        ?: itemInfo.id.takeIf { it != ItemInfo.NO_ID && it != 0 }
+                        ?: return@Factory null
+                    EditDrawerFolder(launcher, folderId, originalView)
+                } else {
+                    null
+                }
+            }
 
         val CUSTOMIZE =
             SystemShortcut.Factory { activity: LawnchairLauncher, itemInfo, originalView ->
@@ -98,6 +79,9 @@ class LawnchairShortcut {
                     null
                 } else {
                     getAppInfo(activity, itemInfo)?.let { Customize(activity, it, itemInfo, originalView) }
+                        ?: (itemInfo as? WorkspaceItemInfo)?.takeIf {
+                            it.itemType == ITEM_TYPE_SHORTCUT || it.itemType == ITEM_TYPE_DEEP_SHORTCUT
+                        }?.let { CustomizeShortcut(activity, it, originalView) }
                 }
             }
         val CUSTOMIZE_FOLDER =
@@ -236,6 +220,57 @@ class LawnchairShortcut {
             ) {
                 CustomizeFolderDialog(
                     folderInfo = folderInfo,
+                ) { close(true) }
+            }
+        }
+    }
+
+    class EditDrawerFolder(
+        private val launcher: LawnchairLauncher,
+        private val folderId: Int,
+        originalView: View,
+    ) : SystemShortcut<LawnchairLauncher>(
+        R.drawable.ic_edit,
+        R.string.edit_folder,
+        launcher,
+        originalView.tag as ItemInfo,
+        originalView,
+    ) {
+        override fun onClick(v: View) {
+            AbstractFloatingView.closeAllOpenViews(launcher)
+            launcher.startActivity(
+                PreferenceActivity.createIntent(
+                    launcher,
+                    AppDrawerAppListToFolder(folderId),
+                ),
+            )
+        }
+    }
+
+    class CustomizeShortcut(
+        private val launcher: LawnchairLauncher,
+        private val shortcutInfo: WorkspaceItemInfo,
+        originalView: View,
+    ) : SystemShortcut<LawnchairLauncher>(R.drawable.ic_edit, R.string.action_customize, launcher, shortcutInfo, originalView) {
+
+        override fun onClick(v: View) {
+            val icon = shortcutInfo.bitmap.newIcon(launcher)
+            val key = if (shortcutInfo.itemType == ITEM_TYPE_DEEP_SHORTCUT) {
+                ShortcutKey.fromItemInfo(shortcutInfo)
+            } else {
+                val targetCmp = shortcutInfo.targetComponent
+                    ?: ComponentName(launcher.packageName, "Shortcut_${shortcutInfo.id}")
+                ComponentKey(targetCmp, shortcutInfo.user)
+            }
+            AbstractFloatingView.closeAllOpenViews(launcher)
+            ComposeBottomSheet.show(
+                context = launcher,
+                contentPaddings = PaddingValues(bottom = 64.dp),
+            ) {
+                CustomizeWorkspaceShortcutDialog(
+                    icon = icon,
+                    shortcutInfo = shortcutInfo,
+                    componentKey = key,
                 ) { close(true) }
             }
         }

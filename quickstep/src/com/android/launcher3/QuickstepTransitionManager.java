@@ -806,7 +806,7 @@ public class QuickstepTransitionManager implements OnDeviceProfileChangeListener
         final float finalShadowRadius = appTargetsAreTranslucent ? 0 : mMaxShadowRadius;
 
         MultiValueUpdateListener listener = new MultiValueUpdateListener() {
-            FloatProp mDx = new FloatProp(0, prop.dX, mOpeningXInterpolator);
+            FloatProp mDx = new FloatProp(0, prop.dX, mOpeningInterpolator);
             FloatProp mDy = new FloatProp(0, prop.dY, mOpeningInterpolator);
 
             FloatProp mIconScaleToFitScreen = new FloatProp(prop.initialAppIconScale,
@@ -2213,8 +2213,17 @@ public class QuickstepTransitionManager implements OnDeviceProfileChangeListener
             cropCenterXStart = windowTargetBounds.centerX();
             cropCenterYStart = windowTargetBounds.centerY();
 
-            cropWidthStart = windowIconSize;
-            cropHeightStart = windowIconSize;
+            // Start the window crop in the phone screen's aspect ratio so the opening window
+            // expands smoothly in the scale of the phone screen from the app icon's location.
+            float targetAspect = (float) windowTargetBounds.height()
+                    / Math.max(1, windowTargetBounds.width());
+            if (targetAspect >= 1f) {
+                cropWidthStart = windowIconSize;
+                cropHeightStart = Math.round(windowIconSize * targetAspect);
+            } else {
+                cropHeightStart = windowIconSize;
+                cropWidthStart = Math.round(windowIconSize / targetAspect);
+            }
 
             cropWidthEnd = windowTargetBounds.width();
             cropHeightEnd = windowTargetBounds.height();

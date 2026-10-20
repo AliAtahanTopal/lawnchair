@@ -31,12 +31,14 @@ import static com.android.launcher3.model.data.FolderInfo.willAcceptItemType;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
+import android.content.ComponentName;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.os.Looper;
+import android.os.Process;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Property;
@@ -58,6 +60,7 @@ import com.android.launcher3.CheckLongPressHelper;
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.DropTarget.DragObject;
 import com.android.launcher3.Launcher;
+import com.android.launcher3.LauncherAppState;
 import com.android.launcher3.LauncherSettings;
 import com.android.launcher3.OnAlarmListener;
 import com.android.launcher3.R;
@@ -73,6 +76,7 @@ import com.android.launcher3.dragndrop.DragOptions.PreDragCondition;
 import com.android.launcher3.dragndrop.DragView;
 import com.android.launcher3.dragndrop.DraggableView;
 import com.android.launcher3.icons.DotRenderer;
+import com.android.launcher3.icons.LauncherIcons;
 import com.android.launcher3.logger.LauncherAtom.FromState;
 import com.android.launcher3.logger.LauncherAtom.ToState;
 import com.android.launcher3.logging.InstanceId;
@@ -85,6 +89,8 @@ import com.android.launcher3.model.data.ItemInfoWithIcon;
 import com.android.launcher3.model.data.WorkspaceItemFactory;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
 import com.android.launcher3.popup.PopupContainerWithArrow;
+import com.android.launcher3.util.ComponentKey;
+import com.android.launcher3.util.Executors;
 import com.android.launcher3.util.MultiTranslateDelegate;
 import com.android.launcher3.util.Thunk;
 import com.android.launcher3.views.ActivityContext;
@@ -93,7 +99,12 @@ import com.android.launcher3.widget.PendingAddShortcutInfo;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Predicate;
+
+import app.lawnchair.data.iconoverride.IconOverrideRepository;
+import app.lawnchair.icons.iconpack.IconPackProvider;
+import app.lawnchair.icons.picker.IconPickerItem;
 
 /**
  * An icon that can appear on in the workspace representing an {@link Folder}.
@@ -184,6 +195,74 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
 
         icon.setFolder(folder);
         return icon;
+    }
+
+    private @Nullable Drawable mCustomFolderDrawable;
+    private @Nullable String mLoadedCustomFolderOverrideKey;
+    private boolean mLoadingCustomFolderDrawable;
+
+    public static ComponentKey getCustomIconKey(Context context, int folderId) {
+        return new ComponentKey(
+                new ComponentName(context.getPackageName(), "Folder_" + folderId),
+                Process.myUserHandle());
+    }
+
+    public void reloadCustomFolderIcon() {
+        mLoadedCustomFolderOverrideKey = null;
+        mCustomFolderDrawable = null;
+        ensureCustomFolderIconLoaded();
+        invalidate();
+    }
+
+    private boolean ensureCustomFolderIconLoaded() {
+        if (mInfo == null || mInfo.id == ItemInfo.NO_ID) {
+            mCustomFolderDrawable = null;
+            mLoadedCustomFolderOverrideKey = null;
+            return false;
+        }
+        Context context = getContext();
+        ComponentKey key = getCustomIconKey(context, mInfo.id);
+        IconPickerItem item = IconOverrideRepository.INSTANCE.get(context).getOverridesMap().get(key);
+        if (item == null && mInfo.getSyncId() > 0) {
+            key = getCustomIconKey(context, mInfo.getSyncId());
+            item = IconOverrideRepository.INSTANCE.get(context).getOverridesMap().get(key);
+        }
+        if (item == null) {
+            mCustomFolderDrawable = null;
+            mLoadedCustomFolderOverrideKey = null;
+            return false;
+        }
+        final ComponentKey resolvedKey = key;
+        final IconPickerItem resolvedItem = item;
+        String itemKey = item.getPackPackageName() + "/" + item.getDrawableName() + "/" + item.getType();
+        if (Objects.equals(mLoadedCustomFolderOverrideKey, itemKey) && mCustomFolderDrawable != null) {
+            return true;
+        }
+        if (!mLoadingCustomFolderDrawable) {
+            mLoadingCustomFolderDrawable = true;
+            Executors.MODEL_EXECUTOR.execute(() -> {
+                Drawable loaded = null;
+                try {
+                    int iconDpi = LauncherAppState.getIDP(context).fillResIconDpi;
+                    Drawable raw = IconPackProvider.INSTANCE.get(context)
+                            .getDrawable(resolvedItem.toIconEntry(), iconDpi, resolvedKey.user);
+                    if (raw != null) {
+                        try (LauncherIcons li = LauncherIcons.obtain(context)) {
+                            loaded = li.createBadgedIconBitmap(raw).newIcon(context);
+                        }
+                    }
+                } catch (Throwable ignored) {
+                }
+                final Drawable finalDrawable = loaded;
+                post(() -> {
+                    mLoadingCustomFolderDrawable = false;
+                    mLoadedCustomFolderOverrideKey = itemKey;
+                    mCustomFolderDrawable = finalDrawable;
+                    invalidate();
+                });
+            });
+        }
+        return mCustomFolderDrawable != null;
     }
 
     public boolean isCoverModeEnabled() {
@@ -620,7 +699,17 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
         updateCoverModeSharing();
         mPreviewItemManager.recomputePreviewDrawingParams();
 
-        if (isCoverModeEnabled() && mInfo != null && !mInfo.getContents().isEmpty()) {
+        boolean hasCustomIcon = ensureCustomFolderIconLoaded();
+        if (hasCustomIcon && mCustomFolderDrawable != null) {
+            super.dispatchDraw(canvas);
+            int iconSize = mActivity.getDeviceProfile().iconSizePx;
+            int width = getWidth();
+            int left = (width - iconSize) / 2;
+            int top = getPaddingTop();
+            mCustomFolderDrawable.setBounds(left, top, left + iconSize, top + iconSize);
+            mCustomFolderDrawable.draw(canvas);
+            drawDot(canvas);
+        } else if (isCoverModeEnabled() && mInfo != null && !mInfo.getContents().isEmpty()) {
             super.dispatchDraw(canvas);
 
             // 1. Get the first app in the folder
@@ -678,7 +767,7 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
             iconBounds.top = getPaddingTop();
             iconBounds.bottom = iconBounds.top + iconSize;
 
-            if (!(isCoverModeEnabled() && mInfo != null && !mInfo.getContents().isEmpty())) {
+            if (!((mCustomFolderDrawable != null) || (isCoverModeEnabled() && mInfo != null && !mInfo.getContents().isEmpty()))) {
                 float iconScale = (float) mBackground.previewSize / iconSize;
                 Utilities.scaleRectAboutCenter(iconBounds, iconScale);
             }

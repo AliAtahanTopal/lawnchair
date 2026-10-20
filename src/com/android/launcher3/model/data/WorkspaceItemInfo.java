@@ -37,10 +37,13 @@ import com.android.launcher3.icons.IconCache;
 import com.android.launcher3.pm.UserCache;
 import com.android.launcher3.shortcuts.ShortcutKey;
 import com.android.launcher3.util.ApiWrapper;
+import com.android.launcher3.util.ComponentKey;
 import com.android.launcher3.util.ContentWriter;
 import com.android.wm.shell.shared.bubbles.BubbleAnythingFlagHelper;
 
 import java.util.Arrays;
+
+import app.lawnchair.preferences.PreferenceManager;
 
 /**
  * Represents a launchable icon on the workspaces and in folders.
@@ -186,7 +189,9 @@ public class WorkspaceItemInfo extends ItemInfoWithIcon {
         }
         // {@link ShortcutInfo#getActivity} can change during an update. Recreate the intent
         intent = ShortcutKey.makeIntent(shortcutInfo);
-        title = shortcutInfo.getShortLabel();
+        ComponentKey shortcutComponentKey = ShortcutKey.fromInfo(shortcutInfo);
+        String customTitle = PreferenceManager.getInstance(context).getCustomAppName().get(shortcutComponentKey);
+        title = !TextUtils.isEmpty(customTitle) ? customTitle : shortcutInfo.getShortLabel();
 
         CharSequence label = shortcutInfo.getLongLabel();
         if (TextUtils.isEmpty(label)) {

@@ -22,6 +22,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.os.Bundle
@@ -58,6 +59,7 @@ import app.lawnchair.views.LawnchairFloatingSurfaceView
 import com.android.launcher3.AbstractFloatingView
 import com.android.launcher3.BaseActivity
 import com.android.launcher3.BubbleTextView
+import com.android.launcher3.CellLayout
 import com.android.launcher3.GestureNavContract
 import com.android.launcher3.LauncherAppState
 import com.android.launcher3.LauncherSettings.Favorites.CONTAINER_ALL_APPS_PREDICTION
@@ -66,6 +68,7 @@ import com.android.launcher3.LauncherSettings.Favorites.CONTAINER_WIDGETS_PREDIC
 import com.android.launcher3.LauncherState
 import com.android.launcher3.R
 import com.android.launcher3.Utilities
+import com.android.launcher3.folder.Folder
 import com.android.launcher3.folder.FolderIcon
 import com.android.launcher3.model.data.ItemInfo
 import com.android.launcher3.model.data.PredictedContainerInfo
@@ -80,10 +83,12 @@ import com.android.launcher3.uioverrides.states.OverviewState
 import com.android.launcher3.util.ActivityOptionsWrapper
 import com.android.launcher3.util.Executors
 import com.android.launcher3.util.RunnableList
+import com.android.launcher3.util.StableViewInfo
 import com.android.launcher3.util.SystemUiController.UI_STATE_BASE_WINDOW
 import com.android.launcher3.util.Themes
 import com.android.launcher3.util.TouchController
 import com.android.launcher3.views.ActivityContext
+import com.android.launcher3.views.FloatingIconView
 import com.android.launcher3.views.OptionsPopupView
 import com.android.launcher3.views.OptionsPopupView.OptionItem
 import com.android.launcher3.widget.LauncherWidgetHolder
@@ -92,11 +97,12 @@ import com.android.systemui.plugins.shared.LauncherOverlayManager
 import com.android.systemui.shared.system.QuickStepContract
 import com.kieronquinn.app.smartspacer.sdk.client.SmartspacerClient
 import com.patrykmichalik.opto.core.firstBlocking
-import com.patrykmichalik.opto.core.firstBlocking
 import com.patrykmichalik.opto.core.onEach
 import com.patrykmichalik.opto.core.setBlocking
 import dev.kdrag0n.monet.theme.ColorScheme
+import java.lang.ref.WeakReference
 import java.util.stream.Stream
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -315,20 +321,16 @@ class LawnchairLauncher : QuickstepLauncher() {
         out.add(SearchBarStateHandler(this))
     }
 
-    override fun getAllAppsItemLongClickListener(): View.OnLongClickListener {
-        return View.OnLongClickListener { view ->
-            if (view is FolderIcon && view.mInfo.id != ItemInfo.NO_ID) {
-                LawnchairShortcut.showAppDrawerFolderPopup(this, view)
-            } else {
-                super.getAllAppsItemLongClickListener().onLongClick(view)
-            }
-        }
-    }
-
     override fun getSupportedShortcuts(container: Int): Stream<SystemShortcut.Factory<*>> = Stream.concat(
         super.getSupportedShortcuts(container),
         Stream.concat(
-            Stream.of(LawnchairShortcut.UNINSTALL, LawnchairShortcut.CUSTOMIZE, LawnchairShortcut.OPEN_IN_STORE, LawnchairShortcut.CUSTOMIZE_FOLDER),
+            Stream.of(
+                LawnchairShortcut.UNINSTALL,
+                LawnchairShortcut.CUSTOMIZE,
+                LawnchairShortcut.OPEN_IN_STORE,
+                LawnchairShortcut.CUSTOMIZE_FOLDER,
+                LawnchairShortcut.EDIT_DRAWER_FOLDER,
+            ),
             if (LawnchairApp.isRecentsEnabled) Stream.of(LawnchairShortcut.PAUSE_APPS) else Stream.empty(),
         ),
     )
@@ -472,30 +474,76 @@ class LawnchairLauncher : QuickstepLauncher() {
         return ActivityOptionsWrapper(options, callbacks)
     }
 
+    var lastLaunchedStableViewInfo: StableViewInfo? = null
+        private set
+    var lastLaunchedViewRef: WeakReference<View>? = null
+        private set
+
     override fun getActivityLaunchOptions(v: View?, item: ItemInfo?): ActivityOptionsWrapper {
+        val resolvedItem = item ?: (v?.tag as? ItemInfo)
+        lastLaunchedStableViewInfo = StableViewInfo.toStableViewInfo(resolvedItem)
+        lastLaunchedViewRef = v?.let { WeakReference(it) }
         return runCatching {
             super.getActivityLaunchOptions(v, item)
         }.getOrElse {
-            getActivityLaunchOptionsDefault(v)
+            getActivityLaunchOptionsDefault(v, resolvedItem)
         }
     }
 
-    private fun getActivityLaunchOptionsDefault(v: View?): ActivityOptionsWrapper {
+    private fun getActivityLaunchOptionsDefault(v: View?, item: ItemInfo?): ActivityOptionsWrapper {
         var left = 0
         var top = 0
         var width = v!!.measuredWidth
         var height = v.measuredHeight
-        if (v is BubbleTextView) {
-            // Launch from center of icon, not entire view
-            val icon: Drawable? = v.icon
-            if (icon != null) {
-                val bounds = icon.bounds
-                left = (width - bounds.width()) / 2
-                top = v.paddingTop
-                width = bounds.width()
-                height = bounds.height()
+        val viewBounds = Rect()
+        when (v) {
+            is BubbleTextView -> {
+                v.getIconBounds(viewBounds)
+                if (!viewBounds.isEmpty) {
+                    left = viewBounds.left
+                    top = viewBounds.top
+                    width = viewBounds.width()
+                    height = viewBounds.height()
+                }
+            }
+            is FolderIcon -> {
+                v.getPreviewBounds(viewBounds)
+                if (!viewBounds.isEmpty) {
+                    left = viewBounds.left
+                    top = viewBounds.top
+                    width = viewBounds.width()
+                    height = viewBounds.height()
+                }
+            }
+            is DeepShortcutView -> {
+                val iconView = v.iconView
+                if (iconView != null) {
+                    left = iconView.left
+                    top = iconView.top
+                    width = iconView.width
+                    height = iconView.height
+                }
+            }
+            is app.lawnchair.widget.ActivityShortcutWidgetView -> {
+                v.getIconBoundsRelativeTo(v, viewBounds)
+                if (!viewBounds.isEmpty) {
+                    left = viewBounds.left
+                    top = viewBounds.top
+                    width = viewBounds.width()
+                    height = viewBounds.height()
+                }
+            }
+            is app.lawnchair.widget.ActivityPillWidgetView -> {
+                v.getPillBoundsRelativeTo(v, viewBounds)
+                if (!viewBounds.isEmpty) {
+                    left = viewBounds.left
+                    top = viewBounds.top
+                    width = viewBounds.width()
+                    height = viewBounds.height()
+                }
             }
         }
+
         val options = Utilities.allowBGLaunch(
             ActivityOptions.makeClipRevealAnimation(
                 v,
@@ -509,6 +557,8 @@ class LawnchairLauncher : QuickstepLauncher() {
             options.splashScreenStyle = SplashScreen.SPLASH_SCREEN_STYLE_ICON
         }
         options.launchDisplayId = if (v.display != null) v.display.displayId else Display.DEFAULT_DISPLAY
+        options.launchCookie = StableViewInfo.toLaunchCookie(item)
+
         val callback = RunnableList()
         return ActivityOptionsWrapper(options, callback)
     }

@@ -1,50 +1,36 @@
 package app.lawnchair.views
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
-import android.animation.AnimatorSet
-import android.animation.ObjectAnimator
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
+import android.graphics.Picture
 import android.graphics.PixelFormat
-import android.graphics.PorterDuff
 import android.graphics.Rect
 import android.graphics.RectF
 import android.util.AttributeSet
-import android.util.Log
-import android.util.Pair
 import android.view.MotionEvent
-import android.view.SurfaceControl
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import android.view.ViewTreeObserver.OnGlobalLayoutListener
-import androidx.core.graphics.createBitmap
-import androidx.dynamicanimation.animation.DynamicAnimation
-import androidx.dynamicanimation.animation.SpringAnimation
-import androidx.dynamicanimation.animation.SpringForce
 import app.lawnchair.LawnchairLauncher
 import app.lawnchair.launcher
-import com.android.app.animation.Interpolators
 import com.android.launcher3.AbstractFloatingView
-import com.android.launcher3.CellLayout
 import com.android.launcher3.GestureNavContract
 import com.android.launcher3.Insettable
-import com.android.launcher3.LauncherAnimUtils
-import com.android.launcher3.QuickstepTransitionManager.CONTENT_SCALE_DURATION
 import com.android.launcher3.R
 import com.android.launcher3.Utilities
-import com.android.launcher3.statehandlers.DepthController
 import com.android.launcher3.util.Executors
-import com.android.launcher3.util.MultiPropertyFactory
 import com.android.launcher3.util.window.RefreshRateTracker.Companion.getSingleFrameMs
 import com.android.launcher3.views.FloatingIconView.getLocationBoundsForView
 import com.android.launcher3.views.FloatingIconViewCompanion.setPropertiesVisible
-import java.util.function.Consumer
 import kotlin.math.roundToInt
 
+/**
+ * Similar to [com.android.launcher3.views.FloatingSurfaceView] but tailored for [LawnchairLauncher].
+ * Displays a surface with the target icon and passes its position and [android.view.SurfaceControl]
+ * handle to the [GestureNavContract] so the system Recents provider (e.g., Samsung One UI Home)
+ * can natively animate the closing app window directly into its icon on the launcher.
+ */
 class LawnchairFloatingSurfaceView @JvmOverloads constructor(
     context: Context?,
     attrs: AttributeSet? = null,
@@ -57,19 +43,19 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
 
     private val mLauncher: LawnchairLauncher = context!!.launcher
     private val mIconPosition = RectF()
-    private val mDeviceProfile = mLauncher.deviceProfile
+    private val mScreenPosition = RectF()
+    private val mDragLayerLocation = IntArray(2)
 
     private val mIconBounds: Rect = Rect()
+    private val mPicture = Picture()
     private val mRemoveViewRunnable = Runnable { this.removeViewFromParent() }
 
     private val mSurfaceView: SurfaceView = SurfaceView(context)
 
     private var mIcon: View? = null
-    private var mIconBitmap: Bitmap? = null
     private var mContract: GestureNavContract? = null
 
     init {
-        mSurfaceView.setLayerType(LAYER_TYPE_HARDWARE, null)
         mSurfaceView.setZOrderOnTop(true)
 
         mSurfaceView.holder.setFormat(PixelFormat.TRANSLUCENT)
@@ -94,10 +80,8 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
     }
 
     private fun removeViewFromParent() {
-        if (mIconBitmap != null) {
-            mIconBitmap!!.recycle()
-            mIconBitmap = null
-        }
+        mPicture.beginRecording(1, 1)
+        mPicture.endRecording()
         mLauncher.dragLayer.removeViewInLayout(this)
     }
 
@@ -125,110 +109,6 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
         updateIconLocation()
     }
 
-    fun getLauncherContentAnimator(
-        startDelay: Int,
-    ): Pair<AnimatorSet?, Runnable?> {
-        val launcherAnimator = AnimatorSet()
-        val endListener: Runnable?
-
-        val scales = floatArrayOf(mDeviceProfile.workspaceContentScale, 1f)
-
-        mLauncher.pauseExpensiveViewUpdates()
-
-        val viewsToAnimate: MutableList<View?> = ArrayList<View?>()
-        val workspace = mLauncher.workspace
-        workspace.forEachVisiblePage(
-            Consumer { view: View? -> viewsToAnimate.add((view as CellLayout).shortcutsAndWidgets) },
-        )
-        viewsToAnimate.add(mLauncher.hotseat)
-
-        viewsToAnimate.forEach(
-            Consumer { view: View? ->
-                val scaleAnim =
-                    ObjectAnimator.ofFloat<View?>(view, LauncherAnimUtils.SCALE_PROPERTY, *scales)
-                        .setDuration(CONTENT_SCALE_DURATION.toLong() * 3)
-                scaleAnim.interpolator = Interpolators.DECELERATE_1_5
-                launcherAnimator.play(scaleAnim)
-            },
-        )
-
-        endListener = Runnable {
-            viewsToAnimate.forEach(
-                Consumer { view: View? ->
-                    LauncherAnimUtils.SCALE_PROPERTY.set(view, 1f)
-                    view!!.setLayerType(LAYER_TYPE_NONE, null)
-                },
-            )
-            mLauncher.resumeExpensiveViewUpdates()
-        }
-
-        launcherAnimator.setStartDelay(startDelay.toLong())
-        return Pair<AnimatorSet?, Runnable?>(launcherAnimator, endListener)
-    }
-
-    private fun getBackgroundAnimator(): ObjectAnimator {
-        val depthController = DepthController(mLauncher)
-        val targetDepth = mLauncher.stateManager.state.getDepth<LawnchairLauncher?>(mLauncher)
-
-        val backgroundRadiusAnim = createDepthAnimator(
-            depthController,
-            targetDepth,
-            onEnd = {
-                if (Utilities.ATLEAST_R) {
-                    val viewRootImpl = mLauncher.dragLayer.getViewRootImpl()
-                    val parent = viewRootImpl?.surfaceControl
-                    val dimLayer: SurfaceControl = SurfaceControl.Builder()
-                        .setName("Blur layer")
-                        .setParent(parent)
-                        .setOpaque(false)
-                        .setEffectLayer()
-                        .build()
-
-                    createDepthAnimator(
-                        depthController,
-                        mLauncher.depthController.stateDepth.value,
-                    ) {
-                        depthController.dispose()
-                        SurfaceControl.Transaction().remove(dimLayer).apply()
-                    }.start()
-                } else {
-                    createDepthAnimator(
-                        depthController,
-                        mLauncher.depthController.stateDepth.value,
-                    ) {
-                        depthController.dispose()
-                    }.start()
-                }
-            },
-        )
-
-        return backgroundRadiusAnim
-    }
-
-    private fun createDepthAnimator(
-        depthController: DepthController,
-        targetDepth: Float,
-        onEnd: (() -> Unit)? = null,
-    ): ObjectAnimator {
-        return ObjectAnimator.ofFloat(
-            depthController.stateDepth,
-            MultiPropertyFactory.MULTI_PROPERTY_VALUE,
-            targetDepth,
-        ).apply {
-            duration = CONTENT_SCALE_DURATION.toLong() * 2
-            interpolator = Interpolators.DECELERATE_2
-            onEnd?.let {
-                addListener(
-                    object : AnimatorListenerAdapter() {
-                        override fun onAnimationEnd(animation: Animator) {
-                            it()
-                        }
-                    },
-                )
-            }
-        }
-    }
-
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         getViewTreeObserver().removeOnGlobalLayoutListener(this)
@@ -240,111 +120,114 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
     }
 
     fun getIcon(): View? {
-        return mLauncher.getFirstHomeElementForAppClose(
-            null, /* StableViewInfo */
-            mContract!!.componentName.packageName,
-            mContract!!.user,
-        )
+        val contract = mContract ?: return null
+        val pkg = contract.componentName.packageName
+        val user = contract.user
+
+        // Check if the exact view that launched the app is still attached and visible
+        val launchedView = mLauncher.lastLaunchedViewRef?.get()
+        if (launchedView != null && launchedView.isAttachedToWindow && launchedView.isAggregatedVisible) {
+            if (launchedView is app.lawnchair.widget.ActivityShortcutWidgetView ||
+                launchedView is app.lawnchair.widget.ActivityPillWidgetView
+            ) {
+                return launchedView
+            }
+            val info = launchedView.tag as? com.android.launcher3.model.data.ItemInfo
+            if (info != null && info.user == user && info.targetPackage == pkg) {
+                return launchedView
+            }
+        }
+
+        return mLauncher.getFirstVisibleElementForAppClose(
+            mLauncher.lastLaunchedStableViewInfo,
+            pkg,
+            user,
+        ) ?: findActivityWidgetForPackage(pkg)
+    }
+
+    private fun findActivityWidgetForPackage(packageName: String): View? {
+        val result = arrayOfNulls<View>(1)
+        mLauncher.workspace?.forEachVisiblePage { page ->
+            if (result[0] != null) return@forEachVisiblePage
+            val cellLayout = page as? com.android.launcher3.CellLayout ?: return@forEachVisiblePage
+            val container = cellLayout.shortcutsAndWidgets
+            for (i in 0 until container.childCount) {
+                val child = container.getChildAt(i)
+                if (child is app.lawnchair.LawnchairAppWidgetHostView && child.childCount > 0) {
+                    val inner = child.getChildAt(0)
+                    if (inner is app.lawnchair.widget.ActivityShortcutWidgetView ||
+                        inner is app.lawnchair.widget.ActivityPillWidgetView
+                    ) {
+                        val cfg = app.lawnchair.widget.ActivityShortcutWidgetProvider.loadConfig(
+                            mLauncher,
+                            child.appWidgetId,
+                        )
+                        if (cfg?.componentName?.packageName == packageName) {
+                            result[0] = inner
+                            break
+                        }
+                    }
+                }
+            }
+        }
+        return result[0]
     }
 
     override fun setInsets(insets: Rect?) {}
 
     private fun updateIconLocation() {
-        if (mContract == null) {
-            return
-        }
+        val contract = mContract ?: return
 
-        synchronized(this) {
-            val icon = getIcon()
+        val icon = getIcon()
 
-            val iconChanged = mIcon !== icon
-            if (iconChanged) {
-                setCurrentIconVisible(true)
-                mIcon = icon
-                setCurrentIconVisible(false)
-            }
-
-            if (icon != null) {
-                getLocationBoundsForView(mLauncher, icon, false, mTmpPosition, mIconBounds)
-                if (mTmpPosition != mIconPosition) {
-                    mIconPosition.set(mTmpPosition)
-                    updateSurfaceViewLayout()
-                }
-            }
-
-            sendIconInfo()
-
-            if (mIcon != null && iconChanged && !mIconBounds.isEmpty) {
-                if (mIconBitmap == null || mIconBitmap!!.getWidth() != mIconBounds.width() || mIconBitmap!!.getHeight() != mIconBounds.height()) {
-                    if (mIconBitmap != null) mIconBitmap!!.recycle()
-                    mIconBitmap = createBitmap(
-                        mIconBounds.width(),
-                        mIconBounds.height(),
-                        Bitmap.Config.ARGB_8888,
-                    )
-                }
-                postInvalidateIconDrawing()
-            }
-        }
-    }
-
-    private fun postInvalidateIconDrawing() {
-        synchronized(this) {
-            post {
-                if (mIcon == null) return@post
-                drawIconOnBitmap()
-                drawOnSurface()
-                bouncyIcon()
-            }
-        }
-    }
-
-    private fun updateSurfaceViewLayout() {
-        post {
-            val lp = mSurfaceView.layoutParams as LayoutParams
-            lp.width = mIconPosition.width().roundToInt()
-            lp.height = mIconPosition.height().roundToInt()
-            lp.leftMargin = mIconPosition.left.roundToInt()
-            lp.topMargin = mIconPosition.top.roundToInt()
-        }
-    }
-
-    private fun drawIconOnBitmap() {
-        if (mIcon != null && !mIconBounds.isEmpty) {
+        val iconChanged = mIcon !== icon
+        if (iconChanged) {
             setCurrentIconVisible(true)
-            try {
-                val c = Canvas(mIconBitmap!!)
-                c.translate(-mIconBounds.left.toFloat(), -mIconBounds.top.toFloat())
-                mIcon!!.draw(c)
-            } catch (t: Throwable) {
-                Log.e(this.javaClass.name, "drawIconOnBitmap: ", t)
-            }
+            mIcon = icon
             setCurrentIconVisible(false)
         }
-    }
 
-    private fun bouncyIcon() {
-        mIcon ?: return
+        if (icon != null && icon.isAttachedToWindow) {
+            getLocationBoundsForView(mLauncher, icon, false, mTmpPosition, mIconBounds)
+            if (mTmpPosition != mIconPosition) {
+                mIconPosition.set(mTmpPosition)
 
-        val (startX, startY) = mIconPosition.left to mIconPosition.top - ((height * 0.2f) / 3)
+                val lp = mSurfaceView.layoutParams as LayoutParams
+                lp.width = mIconPosition.width().roundToInt()
+                lp.height = mIconPosition.height().roundToInt()
+                lp.leftMargin = mIconPosition.left.roundToInt()
+                lp.topMargin = mIconPosition.top.roundToInt()
+                mSurfaceView.requestLayout()
+            }
+        }
 
-        listOf(
-            SpringAnimation(mIcon, DynamicAnimation.TRANSLATION_X, 1f).apply {
-                spring = SpringForce(1f).setStiffness(SpringForce.STIFFNESS_LOW)
-                    .setDampingRatio(SpringForce.DAMPING_RATIO_HIGH_BOUNCY)
-                setStartVelocity((mIconPosition.left - startX) * 2)
-            },
-            SpringAnimation(mIcon, DynamicAnimation.TRANSLATION_Y, 1f).apply {
-                spring = SpringForce(1f).setStiffness(SpringForce.STIFFNESS_LOW)
-                    .setDampingRatio(SpringForce.DAMPING_RATIO_HIGH_BOUNCY)
-                setStartVelocity((mIconPosition.top - startY) * 3)
-            },
-        ).forEach { it.start() }
+        sendIconInfo()
+
+        if (mIcon != null && iconChanged && !mIconBounds.isEmpty) {
+            setCurrentIconVisible(true)
+            val c = mPicture.beginRecording(mIconBounds.width(), mIconBounds.height())
+            c.translate(-mIconBounds.left.toFloat(), -mIconBounds.top.toFloat())
+            mIcon!!.draw(c)
+            mPicture.endRecording()
+            setCurrentIconVisible(false)
+            drawOnSurface()
+        }
     }
 
     private fun sendIconInfo() {
-        if (mContract != null && Utilities.ATLEAST_Q) {
-            mContract!!.sendEndPosition(mIconPosition, mLauncher, mSurfaceView.surfaceControl)
+        val contract = mContract ?: return
+        mLauncher.dragLayer.getLocationOnScreen(mDragLayerLocation)
+        mScreenPosition.set(mIconPosition)
+        if (!mScreenPosition.isEmpty) {
+            mScreenPosition.offset(
+                mDragLayerLocation[0].toFloat(),
+                mDragLayerLocation[1].toFloat(),
+            )
+        }
+        if (Utilities.ATLEAST_Q) {
+            contract.sendEndPosition(mScreenPosition, mLauncher, mSurfaceView.surfaceControl)
+        } else {
+            contract.sendEndPosition(mScreenPosition, mLauncher, null)
         }
     }
 
@@ -359,7 +242,7 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
         width: Int,
         height: Int,
     ) {
-        updateIconLocation()
+        drawOnSurface()
     }
 
     override fun surfaceDestroyed(surfaceHolder: SurfaceHolder) {}
@@ -370,17 +253,14 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
 
     private fun drawOnSurface() {
         val surfaceHolder = mSurfaceView.holder
-        if (!surfaceHolder.surface.isValid || mIconBitmap == null) return
+        if (!surfaceHolder.surface.isValid) return
 
-        synchronized(this) {
-            val c = surfaceHolder.lockHardwareCanvas()
-            if (c != null) {
-                try {
-                    c.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
-                    c.drawBitmap(mIconBitmap!!, 0f, 0f, null)
-                } finally {
-                    surfaceHolder.unlockCanvasAndPost(c)
-                }
+        val c = surfaceHolder.lockHardwareCanvas()
+        if (c != null) {
+            try {
+                mPicture.draw(c)
+            } finally {
+                surfaceHolder.unlockCanvasAndPost(c)
             }
         }
     }
@@ -395,6 +275,7 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
         /**
          * Shows the surfaceView for the provided contract
          */
+        @JvmStatic
         fun show(launcher: LawnchairLauncher, contract: GestureNavContract?) {
             val view: LawnchairFloatingSurfaceView =
                 launcher.viewCache.getView(
@@ -405,25 +286,8 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
             view.mContract = contract
             view.mIsOpen = true
 
-            val anim = AnimatorSet()
-            val startDelay = launcher.getSingleFrameMs()
-            val launcherContentAnimator: Pair<AnimatorSet?, Runnable?> =
-                view.getLauncherContentAnimator(startDelay)
-            anim.playTogether(launcherContentAnimator.first, view.getBackgroundAnimator())
-            anim.addListener(
-                object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator) {
-                        launcherContentAnimator.second!!.run()
-                    }
-                },
-            )
-
             view.removeViewImmediate()
             launcher.dragLayer.addView(view)
-            anim.start()
-            view.getIcon()?.let {
-                launcher.showFullScreenOverlay(endView = it) {}
-            }
         }
     }
 }

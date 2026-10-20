@@ -59,6 +59,13 @@ class IconOverrideRepository @Inject constructor(
         updatePackageQueue.offer(target)
     }
 
+    fun copyOverride(from: ComponentKey, to: ComponentKey) {
+        val item = _overridesMap[from] ?: return
+        scope.launch {
+            setOverride(to, item)
+        }
+    }
+
     suspend fun deleteOverride(target: ComponentKey) {
         dao.delete(target)
         _overridesMap = _overridesMap - target

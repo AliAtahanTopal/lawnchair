@@ -78,14 +78,19 @@ class ItemInflater<T>(
                 }
                 return createShortcut(info, parent, container)
             }
-            Favorites.ITEM_TYPE_FOLDER ->
+            Favorites.ITEM_TYPE_FOLDER -> {
+                val folder = item as FolderInfo
+                if (container != ItemInfo.NO_ID) {
+                    folder.container = container
+                }
                 return FolderIcon.inflateFolderAndIcon(
                         R.layout.folder_icon,
                         context,
                         parent,
-                        item as FolderInfo,
+                        folder,
                     )
                     .apply { onFocusChangeListener = focusListener }
+            }
             Favorites.ITEM_TYPE_APP_PAIR ->
                 return AppPairIcon.inflateIcon(
                     R.layout.app_pair_icon,

@@ -270,6 +270,10 @@ public class FloatingIconView extends FrameLayout implements
             ((BubbleTextView) v).getIconBounds(outViewBounds);
         } else if (v instanceof FolderIcon) {
             ((FolderIcon) v).getPreviewBounds(outViewBounds);
+        } else if (v instanceof app.lawnchair.widget.ActivityShortcutWidgetView aswv) {
+            aswv.getIconBoundsRelativeTo(v, outViewBounds);
+        } else if (v instanceof app.lawnchair.widget.ActivityPillWidgetView apwv) {
+            apwv.getPillBoundsRelativeTo(v, outViewBounds);
         } else {
             outViewBounds.set(0, 0, v.getWidth(), v.getHeight());
         }

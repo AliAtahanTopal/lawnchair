@@ -37,6 +37,7 @@ import com.android.launcher3.Utilities;
 import com.android.launcher3.celllayout.CellPosMapper;
 import com.android.launcher3.celllayout.CellPosMapper.CellPos;
 import com.android.launcher3.config.FeatureFlags;
+import com.android.launcher3.folder.FolderIcon;
 import com.android.launcher3.logging.FileLog;
 import com.android.launcher3.model.BgDataModel.Callbacks;
 import com.android.launcher3.model.data.CollectionInfo;
@@ -46,12 +47,15 @@ import com.android.launcher3.model.data.LauncherAppWidgetInfo;
 import com.android.launcher3.model.data.WorkspaceItemFactory;
 import com.android.launcher3.model.data.WorkspaceItemInfo;
 import com.android.launcher3.provider.LauncherDbUtils.SQLiteTransaction;
+import com.android.launcher3.util.ComponentKey;
 import com.android.launcher3.util.ContentWriter;
 import com.android.launcher3.util.Executors;
 import com.android.launcher3.util.IntArray;
 import com.android.launcher3.util.ItemInfoMatcher;
 import com.android.launcher3.util.LooperExecutor;
 import com.android.launcher3.widget.LauncherWidgetHolder;
+
+import app.lawnchair.data.iconoverride.IconOverrideRepository;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -379,6 +383,12 @@ public class ModelWriter {
             item.id = mModel.getModelDbController().generateNewItemId();
             allItemsToAdd.add(item);
             if (item instanceof FolderInfo folder) {
+                int syncId = folder.getSyncId();
+                if (syncId > 0) {
+                    ComponentKey oldKey = FolderIcon.getCustomIconKey(mContext, syncId);
+                    ComponentKey newKey = FolderIcon.getCustomIconKey(mContext, item.id);
+                    IconOverrideRepository.INSTANCE.get(mContext).copyOverride(oldKey, newKey);
+                }
                 List<ItemInfo> contents = new ArrayList<>(folder.getContents());
                 folder.getContents().clear();
                 for (int i = 0; i < contents.size(); i++) {

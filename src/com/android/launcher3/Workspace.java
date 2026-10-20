@@ -3239,6 +3239,11 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             mLauncher.getModelWriter().addOrMoveItemInDatabase(info, container, screenId,
                     mTargetCell[0], mTargetCell[1]);
 
+            if (view instanceof FolderIcon fi) {
+                fi.onItemsChanged(false);
+                fi.reloadCustomFolderIcon();
+            }
+
             addInScreen(view, container, screenId, mTargetCell[0], mTargetCell[1],
                     info.spanX, info.spanY);
             if (view.getParent() != null) {

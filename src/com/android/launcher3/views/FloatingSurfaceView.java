@@ -202,10 +202,16 @@ public class FloatingSurfaceView extends AbstractFloatingView implements
 
     private void sendIconInfo() {
         if (mContract != null) {
+            int[] dragLayerPos = new int[2];
+            mLauncher.getDragLayer().getLocationOnScreen(dragLayerPos);
+            RectF screenPos = new RectF(mIconPosition);
+            if (!screenPos.isEmpty()) {
+                screenPos.offset(dragLayerPos[0], dragLayerPos[1]);
+            }
             if (ATLEAST_Q) {
-                mContract.sendEndPosition(mIconPosition, mLauncher, mSurfaceView.getSurfaceControl());
+                mContract.sendEndPosition(screenPos, mLauncher, mSurfaceView.getSurfaceControl());
             } else {
-                mContract.sendEndPosition(mIconPosition, mLauncher, null);
+                mContract.sendEndPosition(screenPos, mLauncher, null);
             }
         }
     }

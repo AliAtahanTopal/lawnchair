@@ -31,9 +31,10 @@ data class StableViewInfo(val itemId: Int, val containerId: Int, val stableId: A
 
     companion object {
 
-        private fun ItemInfo.toStableViewInfo() =
-            stableId?.let { sId ->
-                if (id != NO_ID || container != NO_ID) StableViewInfo(id, container, sId) else null
+        @JvmStatic
+        fun toStableViewInfo(info: ItemInfo?) =
+            info?.stableId?.let { sId ->
+                if (info.id != NO_ID || info.container != NO_ID) StableViewInfo(info.id, info.container, sId) else null
             }
 
         /**
@@ -43,7 +44,7 @@ data class StableViewInfo(val itemId: Int, val containerId: Int, val stableId: A
          */
         @JvmStatic
         fun toLaunchCookie(info: ItemInfo?) =
-            info?.toStableViewInfo()?.let { ObjectWrapper.wrap(it) }
+            toStableViewInfo(info)?.let { ObjectWrapper.wrap(it) }
 
         /**
          * Unwraps the binder and returns the first non-null StableViewInfo in the list or null if

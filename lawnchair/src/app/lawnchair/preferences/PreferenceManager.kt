@@ -230,12 +230,17 @@ class PreferenceManager @Inject constructor(
                     hotseatColumns.set(gridState.hotseatCount)
                 }
             }
+            if (oldVersion < 3) {
+                if (isGestureNavContractCompatible) {
+                    enableGnc.set(true)
+                }
+            }
         }
         normalizeVibrationFeedbackLevel()
     }
 
     companion object {
-        private const val CURRENT_VERSION = 2
+        private const val CURRENT_VERSION = 3
 
         @JvmField
         val INSTANCE = DaggerSingletonObject(LauncherAppComponent::getPreferenceManager)

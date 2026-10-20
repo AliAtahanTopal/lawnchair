@@ -53,10 +53,15 @@ import com.android.launcher3.LauncherAppState
 import com.android.launcher3.LauncherState
 import com.android.launcher3.R
 import com.android.launcher3.dragndrop.FolderAdaptiveIcon
+import com.android.launcher3.icons.LauncherIcons
 import com.android.launcher3.model.data.FolderInfo
+import com.android.launcher3.model.data.WorkspaceItemInfo
 import com.android.launcher3.util.ComponentKey
+import com.android.launcher3.util.Executors.MODEL_EXECUTOR
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun CustomizeDialog(
@@ -231,14 +236,29 @@ fun CustomizeFolderDialog(
 ) {
     val context = LocalContext.current
     val launcher = context.launcher
+    val scope = rememberCoroutineScope()
 
     var title by remember {
         mutableStateOf(folderInfo.title?.toString() ?: "")
     }
 
+    val folderIconKey = remember(folderInfo.id) {
+        com.android.launcher3.folder.FolderIcon.getCustomIconKey(context, folderInfo.id)
+    }
+
     // FIX: Retrieve the workspace configuration size or safely fallback to a valid static placeholder resource
     // to bypass internal platform size generation errors entirely.
     val icon = remember(folderInfo) {
+        val overrideItem = app.lawnchair.data.iconoverride.IconOverrideRepository.INSTANCE.get(context)
+            .overridesMap[folderIconKey]
+        if (overrideItem != null) {
+            val iconDpi = LauncherAppState.getIDP(context).fillResIconDpi
+            val customDrawable = app.lawnchair.icons.iconpack.IconPackProvider.INSTANCE.get(context)
+                .getDrawable(overrideItem.toIconEntry(), iconDpi, folderIconKey.user)
+            if (customDrawable != null) {
+                return@remember customDrawable
+            }
+        }
         val size = launcher.deviceProfile?.iconSizePx?.takeIf { it > 0 } ?: 180
         val sizePoint = android.graphics.Point(size, size)
 
@@ -258,6 +278,19 @@ fun CustomizeFolderDialog(
         mutableStateOf(folderInfo.hasOption(FolderInfo.FLAG_COVER_MODE))
     }
 
+    val openIconPicker = {
+        val route = SelectIcon(folderIconKey.toString())
+        val intent = PreferenceActivity.createIntent(context, route)
+        scope.launch {
+            val result = BlankActivity.startBlankActivityForResult(context as Activity, intent)
+            if (result.resultCode == Activity.RESULT_OK) {
+                launcher.findFolderIcon(folderInfo.id)?.reloadCustomFolderIcon()
+                onClose()
+            }
+        }
+        Unit
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             if (title != (folderInfo.title?.toString() ?: "")) {
@@ -266,6 +299,7 @@ fun CustomizeFolderDialog(
             if (coverMode != folderInfo.hasOption(FolderInfo.FLAG_COVER_MODE)) {
                 folderInfo.setOption(FolderInfo.FLAG_COVER_MODE, coverMode, launcher.modelWriter)
             }
+            launcher.findFolderIcon(folderInfo.id)?.reloadCustomFolderIcon()
         }
     }
 
@@ -274,7 +308,7 @@ fun CustomizeFolderDialog(
         title = title,
         onTitleChange = { title = it },
         defaultTitle = "",
-        launchSelectIcon = null,
+        launchSelectIcon = openIconPicker,
         modifier = modifier,
     ) {
         PreferenceGroup {
@@ -285,4 +319,101 @@ fun CustomizeFolderDialog(
             )
         }
     }
+}
+
+@Composable
+fun CustomizeWorkspaceShortcutDialog(
+    icon: Drawable,
+    shortcutInfo: WorkspaceItemInfo,
+    componentKey: ComponentKey,
+    modifier: Modifier = Modifier,
+    onClose: () -> Unit,
+) {
+    val context = LocalContext.current
+    val launcher = context.launcher
+    val prefs = preferenceManager()
+    val defaultTitle = remember(shortcutInfo) { shortcutInfo.title?.toString() ?: "" }
+    var title by remember {
+        mutableStateOf(prefs.customAppName[componentKey] ?: defaultTitle)
+    }
+
+    val route = SelectIcon(componentKey.toString())
+    val scope = rememberCoroutineScope()
+    val openIconPicker = {
+        val intent = PreferenceActivity.createIntent(context, route)
+        scope.launch {
+            val result = BlankActivity.startBlankActivityForResult(context as Activity, intent)
+            if (result.resultCode == Activity.RESULT_OK) {
+                val repo = app.lawnchair.data.iconoverride.IconOverrideRepository.INSTANCE.get(context)
+                val overrideItem = repo.overridesMap[componentKey]
+                withContext(Dispatchers.IO) {
+                    val iconDpi = LauncherAppState.getIDP(context).fillResIconDpi
+                    val newDrawable = if (overrideItem != null) {
+                        app.lawnchair.icons.iconpack.IconPackProvider.INSTANCE.get(context)
+                            .getDrawable(overrideItem.toIconEntry(), iconDpi, componentKey.user)
+                    } else {
+                        // Reset to default icon
+                        if (shortcutInfo.itemType == com.android.launcher3.LauncherSettings.Favorites.ITEM_TYPE_DEEP_SHORTCUT) {
+                            val shortcutKey = com.android.launcher3.shortcuts.ShortcutKey.fromItemInfo(shortcutInfo)
+                            val shortcuts = com.android.launcher3.shortcuts.ShortcutRequest(context, shortcutKey.user)
+                                .forPackage(shortcutKey.packageName, listOf(shortcutKey.id))
+                                .query(com.android.launcher3.shortcuts.ShortcutRequest.ALL)
+                            shortcuts.firstOrNull()?.let {
+                                com.android.launcher3.icons.CacheableShortcutInfo.getIcon(context, it, iconDpi)
+                            }
+                        } else {
+                            val targetCn = shortcutInfo.targetComponent
+                            val pm = context.packageManager
+                            if (targetCn != null) {
+                                try {
+                                    val actInfo = pm.getActivityInfo(targetCn, 0)
+                                    LauncherAppState.getInstance(context).iconCache.iconProvider.getIcon(actInfo, iconDpi)
+                                } catch (_: Exception) {
+                                    try {
+                                        pm.getApplicationIcon(targetCn.packageName)
+                                    } catch (_: Exception) {
+                                        null
+                                    }
+                                }
+                            } else {
+                                null
+                            }
+                        }
+                    }
+                    if (newDrawable != null) {
+                        LauncherIcons.obtain(context).use { li ->
+                            shortcutInfo.bitmap = li.createBadgedIconBitmap(newDrawable)
+                        }
+                    }
+                    launcher.modelWriter.updateItemInDatabase(shortcutInfo)
+                }
+                launcher.bindItemsUpdated(setOf(shortcutInfo))
+                onClose()
+            }
+        }
+        Unit
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            if (title != (shortcutInfo.title?.toString() ?: "")) {
+                prefs.customAppName[componentKey] = title.takeIf { it.isNotEmpty() }
+                shortcutInfo.title = title
+                shortcutInfo.contentDescription = title
+                MODEL_EXECUTOR.execute {
+                    launcher.modelWriter.updateItemInDatabase(shortcutInfo)
+                }
+                launcher.bindItemsUpdated(setOf(shortcutInfo))
+            }
+        }
+    }
+
+    CustomizeDialog(
+        icon = icon,
+        title = title,
+        onTitleChange = { title = it },
+        defaultTitle = defaultTitle,
+        launchSelectIcon = openIconPicker,
+        modifier = modifier,
+    )
 }

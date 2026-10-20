@@ -115,7 +115,7 @@ fun SliderPreference(
 }
 
 @Composable
-private fun SliderPreference(
+fun SliderPreference(
     label: String,
     value: Float,
     onValueChangeFinished: (Float) -> Unit,
@@ -125,6 +125,7 @@ private fun SliderPreference(
     showAsPercentage: Boolean = false,
     showUnit: String = "",
     enabled: Boolean = true,
+    onValueChange: ((Float) -> Unit)? = null,
 ) {
     var sliderValue by remember { mutableFloatStateOf(value) }
     var thresholdReached by remember { mutableStateOf<SliderThreshold?>(null) }
@@ -179,6 +180,7 @@ private fun SliderPreference(
                 value = sliderValue,
                 onValueChange = { newValue ->
                     sliderValue = newValue
+                    onValueChange?.invoke(newValue)
                     val threshold = when {
                         newValue <= valueRange.start -> SliderThreshold.START
                         newValue >= valueRange.endInclusive -> SliderThreshold.END

@@ -199,6 +199,54 @@
                 android:resource="@xml/smartspace_appwidget_info" />
         </receiver>
 
+        <receiver
+            android:name="app.lawnchair.widget.ActivityShortcutWidgetProvider"
+            android:label="@string/activity_shortcut_widget_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="app.lawnchair.widget.ACTION_LAUNCH_ACTIVITY" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/activity_shortcut_appwidget_info" />
+        </receiver>
+
+        <receiver
+            android:name="app.lawnchair.widget.ActivityPillWidgetProvider"
+            android:label="@string/activity_pill_widget_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="app.lawnchair.widget.ACTION_LAUNCH_ACTIVITY" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/activity_pill_appwidget_info" />
+        </receiver>
+
+        <activity
+            android:name="app.lawnchair.widget.ActivityWidgetConfigureActivity"
+            android:exported="true"
+            android:label="@string/customize_activity_widget"
+            android:theme="@style/Theme.Lawnchair"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="app.lawnchair.widget.ActivityPillWidgetConfigureActivity"
+            android:exported="true"
+            android:label="@string/customize_activity_widget"
+            android:theme="@style/Theme.Lawnchair"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <meta-data
             android:name="xyz.paphonb.quickstepswitcher.minSdk"
             android:value="${quickstepMinSdk}" />

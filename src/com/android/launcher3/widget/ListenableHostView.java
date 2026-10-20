@@ -30,8 +30,12 @@ public class ListenableHostView extends LauncherAppWidgetHostView {
 
     private Set<Runnable> mUpdateListeners = Collections.EMPTY_SET;
 
-    ListenableHostView(Context context) {
+    public ListenableHostView(Context context) {
         super(context);
+    }
+
+    public void notifyUpdateListeners() {
+        mUpdateListeners.forEach(Runnable::run);
     }
 
     @Override

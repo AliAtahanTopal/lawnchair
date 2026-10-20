@@ -8,20 +8,27 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.RemoteViews
 import app.lawnchair.smartspace.SmartspaceAppWidgetProvider
+import app.lawnchair.widget.ActivityPillWidgetProvider
+import app.lawnchair.widget.ActivityPillWidgetView
+import app.lawnchair.widget.ActivityShortcutWidgetProvider
+import app.lawnchair.widget.ActivityShortcutWidgetView
 import com.android.launcher3.R
 import com.android.launcher3.util.Themes
 import com.android.launcher3.widget.LauncherAppWidgetHostView
+import com.android.launcher3.widget.ListenableHostView
 
 class LawnchairAppWidgetHostView @JvmOverloads constructor(
     context: Context,
     private var previewMode: Boolean = false,
-) : LauncherAppWidgetHostView(context) {
+) : ListenableHostView(context) {
 
     private var customView: ViewGroup? = null
 
     override fun setAppWidget(appWidgetId: Int, info: AppWidgetProviderInfo) {
-        inflateCustomView(info)
         super.setAppWidget(appWidgetId, info)
+        inflateCustomView(info)
+        (customView as? ActivityShortcutWidgetView)?.reloadFromConfig()
+        (customView as? ActivityPillWidgetView)?.reloadFromConfig()
     }
 
     fun disablePreviewMode() {
@@ -29,7 +36,8 @@ class LawnchairAppWidgetHostView @JvmOverloads constructor(
         inflateCustomView(appWidgetInfo)
     }
 
-    private fun inflateCustomView(info: AppWidgetProviderInfo) {
+    private fun inflateCustomView(info: AppWidgetProviderInfo?) {
+        if (info == null) return
         customView = inflateCustomView(context, info, previewMode)
         if (customView == null) {
             return
@@ -40,7 +48,12 @@ class LawnchairAppWidgetHostView @JvmOverloads constructor(
     }
 
     override fun updateAppWidget(remoteViews: RemoteViews?) {
-        if (customView != null) return
+        (customView as? ActivityShortcutWidgetView)?.reloadFromConfig()
+        (customView as? ActivityPillWidgetView)?.reloadFromConfig()
+        if (customView != null) {
+            notifyUpdateListeners()
+            return
+        }
         super.updateAppWidget(remoteViews)
     }
 
@@ -62,6 +75,8 @@ class LawnchairAppWidgetHostView @JvmOverloads constructor(
 
         private val customLayouts = mapOf(
             SmartspaceAppWidgetProvider.componentName to R.layout.smartspace_widget,
+            ActivityShortcutWidgetProvider.componentName to R.layout.activity_shortcut_widget_custom,
+            ActivityPillWidgetProvider.componentName to R.layout.activity_pill_widget_custom,
         )
 
         @JvmStatic

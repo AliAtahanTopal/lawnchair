@@ -2,6 +2,8 @@ package app.lawnchair.theme.color
 
 import android.graphics.Color
 import androidx.compose.ui.res.stringResource
+import app.lawnchair.preferences2.PreferenceManager2
+import app.lawnchair.preferences2.firstCached
 import app.lawnchair.ui.preferences.components.colorpreference.ColorPreferenceEntry
 import app.lawnchair.ui.theme.getSystemAccent
 import app.lawnchair.wallpaper.WallpaperManagerCompat
@@ -84,12 +86,32 @@ sealed class ColorOption {
         override fun toString() = "transparent"
     }
 
+    object SearchBarSurface : ColorOption() {
+        override val isSupported = true
+
+        override val colorPreferenceEntry = ColorPreferenceEntry<ColorOption>(
+            this,
+            { stringResource(id = R.string.search_bar_surface_color) },
+            { context ->
+                val themed = try {
+                    PreferenceManager2.getInstance(context).themedHotseatQsb.firstCached()
+                } catch (_: Exception) {
+                    true
+                }
+                app.lawnchair.qsb.getHotseatBackgroundColor(context, themed)
+            },
+        )
+
+        override fun toString() = "search_bar_surface"
+    }
+
     companion object {
         val LawnchairBlue = CustomColor(0xFF007FFF)
 
         fun fromString(stringValue: String) = when (stringValue) {
             "system_accent" -> SystemAccent
             "wallpaper_primary" -> WallpaperPrimary
+            "search_bar_surface" -> SearchBarSurface
             "default" -> Default
             "transparent" -> Transparent
             else -> instantiateCustomColor(stringValue)

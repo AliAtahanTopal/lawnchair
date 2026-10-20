@@ -71,7 +71,9 @@ public class RoundedCornerEnforcement {
      * Check whether the app widget has opted out of the enforcement.
      */
     public static boolean hasAppWidgetOptedOut(@NonNull View background) {
-        return background.getId() == android.R.id.background && background.getClipToOutline();
+        return (background.getId() == android.R.id.background && background.getClipToOutline())
+                || background instanceof app.lawnchair.widget.ActivityShortcutWidgetView
+                || background instanceof app.lawnchair.widget.ActivityPillWidgetView;
     }
 
     /**
