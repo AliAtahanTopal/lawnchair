@@ -203,12 +203,7 @@ class AllAppsSearchInput(context: Context, attrs: AttributeSet?) :
 
                 val actions = QsbActions(
                     onQsbClick = {
-                        input.isFocusableInTouchMode = true
-                        if (input.text.isNullOrEmpty()) {
-                            searchAlgorithm?.doZeroStateSearch(this@AllAppsSearchInput)
-                        }
-                        input.requestFocus()
-                        input.showKeyboard()
+                        activateSearch()
                     },
                     onStartIconClick = if (shouldShowIcons) {
                         {
@@ -264,13 +259,25 @@ class AllAppsSearchInput(context: Context, attrs: AttributeSet?) :
         val currentPaddingLeft = initialPaddingLeft
         val currentPaddingRight = initialPaddingRight
 
-        // Activate zero search on tap
+        // Activate search on tap anywhere on the bar
         @SuppressLint("ClickableViewAccessibility")
         input.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_DOWN && !input.hasFocus()) {
-                setDirectFocus(true)
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                activateSearch()
             }
             false
+        }
+
+        input.setOnClickListener {
+            activateSearch()
+        }
+
+        hint.setOnClickListener {
+            activateSearch()
+        }
+
+        setOnClickListener {
+            activateSearch()
         }
 
         input.onFocusChangeListener = { _, hasFocus ->
@@ -455,6 +462,17 @@ class AllAppsSearchInput(context: Context, attrs: AttributeSet?) :
             this,
         )
         input.initialize(appsView)
+    }
+
+    fun activateSearch() {
+        setDirectFocus(true)
+        input.isFocusableInTouchMode = true
+        val wasFocused = input.isFocused
+        input.requestFocus()
+        if (wasFocused && input.text.isNullOrEmpty()) {
+            searchAlgorithm?.doZeroStateSearch(this)
+        }
+        input.showKeyboard()
     }
 
     override fun resetSearch() {
