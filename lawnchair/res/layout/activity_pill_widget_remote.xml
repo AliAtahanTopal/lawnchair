@@ -3,8 +3,8 @@
     android:id="@+id/activity_pill_widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:paddingHorizontal="6dp"
-    android:paddingVertical="6dp">
+    android:paddingHorizontal="4dp"
+    android:paddingVertical="4dp">
 
     <ImageView
         android:id="@+id/activity_pill_bg"
@@ -21,12 +21,12 @@
         android:layout_gravity="center"
         android:gravity="center"
         android:orientation="horizontal"
-        android:paddingHorizontal="16dp">
+        android:paddingHorizontal="10dp">
 
         <ImageView
             android:id="@+id/activity_pill_icon"
-            android:layout_width="26dp"
-            android:layout_height="26dp"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
             android:importantForAccessibility="no"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_finder_gradient" />
@@ -35,8 +35,7 @@
             android:id="@+id/activity_pill_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
-            android:ellipsize="end"
+            android:layout_marginStart="8dp"
             android:fontFamily="sans-serif-medium"
             android:gravity="center"
             android:includeFontPadding="false"
@@ -44,7 +43,7 @@
             android:singleLine="true"
             android:text="@string/activity_pill_widget_default_title"
             android:textColor="#D91C1C1E"
-            android:textSize="16sp" />
+            android:textSize="15sp" />
     </LinearLayout>
 </FrameLayout>
 

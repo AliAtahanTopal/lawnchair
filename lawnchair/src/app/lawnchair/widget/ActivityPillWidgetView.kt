@@ -10,6 +10,7 @@ import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -78,6 +79,15 @@ class ActivityPillWidgetView @JvmOverloads constructor(
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         activeViews.remove(this)
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val w = MeasureSpec.getSize(widthMeasureSpec)
+        val h = MeasureSpec.getSize(heightMeasureSpec)
+        if (w > 0 && h > 0) {
+            updatePillAppearanceAndSizing(w, h)
+        }
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -167,8 +177,8 @@ class ActivityPillWidgetView @JvmOverloads constructor(
         val label = labelView ?: return
 
         // Outer margins so the pill sits comfortably inside the workspace grid cells like One UI Finder
-        val hInset = min(dpToPx(6f), (w * 0.04f).roundToInt())
-        val vInset = min(dpToPx(8f), (h * 0.10f).roundToInt())
+        val hInset = min(dpToPx(4f), (w * 0.02f).roundToInt())
+        val vInset = min(dpToPx(6f), (h * 0.08f).roundToInt())
         val availW = (w - hInset * 2).coerceAtLeast(dpToPx(40f))
         val availH = (h - vInset * 2).coerceAtLeast(dpToPx(32f))
 
@@ -186,7 +196,7 @@ class ActivityPillWidgetView @JvmOverloads constructor(
         }
 
         val showLabel = label.visibility == View.VISIBLE
-        val iconSize = (pillH * 0.50f).roundToInt().coerceIn(dpToPx(20f), dpToPx(32f))
+        val iconSize = (pillH * 0.44f).roundToInt().coerceIn(dpToPx(18f), dpToPx(24f))
         val iconLp = icon.layoutParams as? LinearLayout.LayoutParams
         if (iconLp != null && (iconLp.width != iconSize || iconLp.height != iconSize)) {
             iconLp.width = iconSize
@@ -195,19 +205,43 @@ class ActivityPillWidgetView @JvmOverloads constructor(
         }
 
         if (showLabel) {
-            val hPad = (pillH * 0.30f).roundToInt().coerceAtLeast(dpToPx(12f))
+            label.ellipsize = null
+            label.isSingleLine = true
+            label.maxLines = 1
+
+            // Dynamic padding based on width: if space is tight, use compact padding
+            val hPad = if (pillW < dpToPx(160f)) {
+                dpToPx(8f)
+            } else {
+                (pillH * 0.22f).roundToInt().coerceIn(dpToPx(10f), dpToPx(16f))
+            }
             container.gravity = Gravity.CENTER
             container.setPaddingRelative(hPad, 0, hPad, 0)
 
+            val labelGap = if (pillW < dpToPx(160f)) {
+                dpToPx(6f)
+            } else {
+                (pillH * 0.16f).roundToInt().coerceIn(dpToPx(6f), dpToPx(10f))
+            }
             val labelLp = label.layoutParams as? LinearLayout.LayoutParams
-            val labelGap = (pillH * 0.20f).roundToInt().coerceIn(dpToPx(8f), dpToPx(14f))
-            if (labelLp != null && labelLp.marginStart != labelGap) {
+            if (labelLp != null && (labelLp.marginStart != labelGap || labelLp.width != ViewGroup.LayoutParams.WRAP_CONTENT)) {
                 labelLp.marginStart = labelGap
+                labelLp.width = ViewGroup.LayoutParams.WRAP_CONTENT
                 label.layoutParams = labelLp
             }
 
-            val textPx = (pillH * 0.31f).coerceIn(dpToPx(13f).toFloat(), dpToPx(18f).toFloat())
+            var textPx = (pillH * 0.30f).coerceIn(dpToPx(12f).toFloat(), dpToPx(16f).toFloat())
             label.setTextSize(TypedValue.COMPLEX_UNIT_PX, textPx)
+
+            // Measure available width for text inside the pill
+            val availTextW = (pillW - (hPad * 2) - iconSize - labelGap).coerceAtLeast(1)
+            val text = label.text?.toString() ?: ""
+            val measuredTextW = label.paint.measureText(text)
+            if (measuredTextW > availTextW && measuredTextW > 0) {
+                val scale = (availTextW.toFloat() / measuredTextW).coerceIn(0.60f, 1.0f)
+                textPx *= scale
+                label.setTextSize(TypedValue.COMPLEX_UNIT_PX, textPx)
+            }
             label.gravity = Gravity.CENTER
         } else {
             container.gravity = Gravity.CENTER
