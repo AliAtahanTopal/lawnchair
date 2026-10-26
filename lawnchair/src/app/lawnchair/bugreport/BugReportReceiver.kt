@@ -24,23 +24,13 @@ class BugReportReceiver : BroadcastReceiver() {
         val report = intent.getParcelableExtra<BugReport>("report")!!
         when (intent.action) {
             COPY_ACTION -> copyReport(context, report)
-            UPLOAD_ACTION -> startUpload(context, report)
-            UPLOAD_COMPLETE_ACTION -> notify(context, report)
         }
     }
 
     private fun copyReport(context: Context, report: BugReport) {
-        val clipData = ClipData.newPlainText(context.getString(R.string.lawnchair_bug_report), report.link ?: report.contents)
+        val clipData = ClipData.newPlainText(context.getString(R.string.lawnchair_bug_report), report.contents)
         context.requireSystemService<ClipboardManager>().setPrimaryClip(clipData)
         Toast.makeText(context, R.string.copied_toast, Toast.LENGTH_LONG).show()
-    }
-
-    private fun startUpload(context: Context, report: BugReport) {
-        notify(context, report, true)
-        context.startService(
-            Intent(context, UploaderService::class.java)
-                .putExtra("report", report),
-        )
     }
 
     companion object {
@@ -51,8 +41,6 @@ class BugReportReceiver : BroadcastReceiver() {
         private const val GROUP_ID = 0
 
         private const val COPY_ACTION = "${BuildConfig.APPLICATION_ID}.bugreport.COPY"
-        private const val UPLOAD_ACTION = "${BuildConfig.APPLICATION_ID}.bugreport.UPLOAD"
-        const val UPLOAD_COMPLETE_ACTION = "${BuildConfig.APPLICATION_ID}.bugreport.UPLOAD_COMPLETE"
 
         fun notify(context: Context, report: BugReport, uploading: Boolean = false) {
             val manager: NotificationManager = context.requireSystemService()
@@ -123,48 +111,22 @@ class BugReportReceiver : BroadcastReceiver() {
             )
             builder.addAction(shareActionBuilder.build())
 
-            if (report.link != null || fileUri == null) {
-                val copyIntent = Intent(COPY_ACTION)
-                    .setPackage(BuildConfig.APPLICATION_ID)
-                    .putExtra("report", report)
-                val pendingCopyIntent = PendingIntent.getBroadcast(
-                    context,
-                    notificationId,
-                    copyIntent,
-                    FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE,
-                )
-                val copyText = if (report.link != null) R.string.action_copy_link else R.string.action_copy
-                val copyIcon = Icon.createWithResource(context, R.drawable.ic_copy)
-                val copyActionBuilder = Notification.Action.Builder(
-                    copyIcon,
-                    context.getString(copyText),
-                    pendingCopyIntent,
-                )
-                builder.addAction(copyActionBuilder.build())
-            }
-
-            if (uploading) {
-                builder.setOngoing(true)
-                builder.setProgress(0, 0, true)
-            } else if (report.link == null && UploaderUtils.IS_ALIVE_AVAILABLE) {
-                val uploadIntent = Intent(UPLOAD_ACTION)
-                    .setPackage(BuildConfig.APPLICATION_ID)
-                    .putExtra("report", report)
-                val pendingUploadIntent = PendingIntent.getBroadcast(
-                    context,
-                    notificationId,
-                    uploadIntent,
-                    FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE,
-                )
-                val uploadText = if (report.uploadError) R.string.action_upload_error else R.string.action_upload_crash_report
-                val uploadIcon = Icon.createWithResource(context, R.drawable.ic_upload)
-                val uploadActionBuilder = Notification.Action.Builder(
-                    uploadIcon,
-                    context.getString(uploadText),
-                    pendingUploadIntent,
-                )
-                builder.addAction(uploadActionBuilder.build())
-            }
+            val copyIntent = Intent(COPY_ACTION)
+                .setPackage(BuildConfig.APPLICATION_ID)
+                .putExtra("report", report)
+            val pendingCopyIntent = PendingIntent.getBroadcast(
+                context,
+                notificationId,
+                copyIntent,
+                FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE,
+            )
+            val copyIcon = Icon.createWithResource(context, R.drawable.ic_copy)
+            val copyActionBuilder = Notification.Action.Builder(
+                copyIcon,
+                context.getString(R.string.action_copy),
+                pendingCopyIntent,
+            )
+            builder.addAction(copyActionBuilder.build())
 
             manager.notify(notificationId, builder.build())
             manager.notify(GROUP_ID, groupBuilder.build())

@@ -22,35 +22,7 @@ object WebSuggestionProvider : SearchProvider {
         context: Context,
         query: String,
     ): Flow<List<SearchResult>> {
-        val prefs = PreferenceManager.getInstance(context)
-        val prefs2 = PreferenceManager2.getInstance(context)
-
-        if (query.isBlank() || !prefs.searchResultStartPageSuggestion.get()) {
-            return flow { emit(emptyList()) }
-        }
-
-        val provider = prefs2.webSuggestionProvider.firstCached()
-        val timeout = prefs2.maxWebSuggestionDelay.firstCached()
-        val maxResults = prefs2.maxWebSuggestionResultCount.firstCached()
-
-        val webProvider = provider
-            .configure(context)
-
-        return webProvider.getSuggestions(query)
-            .timeout(timeout.milliseconds)
-            .catch {
-                if (it is TimeoutCancellationException) {
-                    Log.w(TAG, "Web suggestion request timed out")
-                    emit(emptyList())
-                }
-            }
-            .map { suggestions ->
-                suggestions
-                    .take(maxResults)
-                    .map { suggestion ->
-                        SearchResult.WebSuggestion(suggestion = suggestion, provider = webProvider.id)
-                    }
-            }
+        return flow { emit(emptyList()) }
     }
 
     const val TAG: String = "WebSuggestionProvider"

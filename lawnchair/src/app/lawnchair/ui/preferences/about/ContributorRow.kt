@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -102,24 +103,19 @@ fun ContributorRow(
             )
         },
         startWidget = {
-            SubcomposeAsyncImage(
-                model = photoUrl,
-                contentDescription = null,
+            Box(
                 modifier = Modifier
                     .clip(CircleShape)
                     .size(32.dp)
-                    .background(MaterialTheme.colorScheme.surfaceContainer),
-                loading = {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .placeholder(
-                                visible = true,
-                                highlight = PlaceholderHighlight.fade(),
-                            ),
-                    )
-                },
-            )
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = name.firstOrNull()?.uppercase() ?: "",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         },
     )
 }

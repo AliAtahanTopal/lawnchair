@@ -36,68 +36,7 @@ class NightlyBuildsRepository(
     private var currentCommitHash: String = BuildConfig.COMMIT_HASH
 
     fun checkForUpdate() {
-        coroutineScope.launch(Dispatchers.Default) {
-            updateState.update { UpdateState.Checking }
-            try {
-                val releases = api.getReleases()
-                val nightly = releases.firstOrNull { it.tagName == "nightly" }
-                val asset = nightly?.assets?.firstOrNull()
-
-                val majorVersion = applicationContext.getApkVersionComparison().first[0]
-                val expectedBranch = "$majorVersion-dev"
-
-                if (nightly != null && nightly.targetCommitish != expectedBranch) {
-                    Log.d(TAG, "Skipping update from branch ${nightly.targetCommitish}, expected $expectedBranch")
-                    updateState.update { UpdateState.Disabled(UpdateDisabledReason.MAJOR_IS_NEWER) }
-                    return@launch
-                }
-
-                // As of now the version string looks like this (CI builds only):
-                // <major>.<branch>.(#<CI build number>)
-                // This is done inside build.gradle in the source root. Reflect
-                // changes from there if needed.
-                currentBuildNumber = BuildConfig.VERSION_DISPLAY_NAME
-                    .substringAfterLast("#")
-                    .removeSuffix(")")
-                    .toIntOrNull() ?: 0
-                latestBuildNumber =
-                    asset?.name?.substringAfter("_")?.substringBefore("-")?.toIntOrNull() ?: 0
-
-                if (asset != null && latestBuildNumber > currentBuildNumber) {
-                    val commitList = getCommitsSinceCurrentVersion()
-
-                    updateState.update {
-                        UpdateState.Available(
-                            asset.name,
-                            asset.browserDownloadUrl,
-                            changelogState = if (commitList != null) {
-                                ChangelogState(
-                                    commits = commitList,
-                                    currentBuildNumber = currentBuildNumber,
-                                    latestBuildNumber = latestBuildNumber,
-                                )
-                            } else {
-                                null
-                            },
-                            expectedSha256 = asset.sha256Hash,
-                        )
-                    }
-                } else {
-                    updateState.update { UpdateState.UpToDate }
-                }
-            } catch (e: Exception) {
-                when (e) {
-                    is IOException -> {
-                        Log.e(TAG, "Network error during update check", e)
-                    }
-
-                    else -> {
-                        Log.e(TAG, "Failed to check for update", e)
-                    }
-                }
-                updateState.update { UpdateState.Failed }
-            }
-        }
+        updateState.update { UpdateState.UpToDate }
     }
 
     fun downloadUpdate() {

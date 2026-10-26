@@ -49,27 +49,6 @@ class AboutViewModel(
                 bottomLinks = bottomLinks,
             )
         }
-
-        viewModelScope.launch(Dispatchers.Default) {
-            val activeContributors = fetchActiveContributors()
-            val updatedCoreTeam = uiState.value.coreTeam.map { member ->
-                val status = if (member.githubUsername != null && activeContributors.contains(member.githubUsername.lowercase())) ContributorStatus.Active else ContributorStatus.Idle
-                member.copy(status = status)
-            }
-            uiState.update { it.copy(coreTeam = updatedCoreTeam) }
-        }
-
-        // Check if the build variant is Nightly
-        // AND check if user has enabled auto updater (available to Nightly variant)
-        // OR check if user has overridden it in debug flags (available to All variant)
-        if (BuildConfig.APPLICATION_ID.contains("nightly") && prefs2.autoUpdaterNightly.firstCached()) {
-            nightlyBuildsRepository.checkForUpdate()
-            viewModelScope.launch {
-                nightlyBuildsRepository.updateState.collect { state ->
-                    uiState.update { it.copy(updateState = state) }
-                }
-            }
-        }
     }
 
     fun downloadUpdate() {
@@ -85,11 +64,7 @@ class AboutViewModel(
     }
 
     private suspend fun fetchActiveContributors(): Set<String> {
-        return runCatching {
-            nightlyBuildsRepository.api.getRepositoryEvents("LawnchairLauncher", "lawnchair")
-                .map { it.actor.login.lowercase() }
-                .toSet()
-        }.getOrDefault(emptySet())
+        return emptySet()
     }
 
     companion object {

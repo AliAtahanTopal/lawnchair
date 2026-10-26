@@ -11,14 +11,5 @@ import kotlinx.coroutines.withContext
 fun SyncLiveInformation(
     liveInformationManager: LiveInformationManager = liveInformationManager(),
 ) {
-    val enabled by liveInformationManager.enabled.asState()
-    val endpoint by liveInformationManager.endpoint.asState()
-
-    LaunchedEffect(enabled, endpoint) {
-        if (enabled) {
-            getLiveInformation(endpoint)?.let { liveInformation ->
-                liveInformationManager.liveInformation.set(liveInformation)
-            }
-        }
-    }
+    // Network live information syncing disabled for privacy
 }
