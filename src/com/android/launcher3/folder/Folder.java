@@ -109,6 +109,7 @@ import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.dagger.LauncherComponentProvider;
 import com.android.launcher3.dragndrop.DragController.DragListener;
 import com.android.launcher3.dragndrop.DragOptions;
+import com.android.launcher3.graphics.PathWrapper;
 import com.android.launcher3.graphics.ShapeDelegate;
 import com.android.launcher3.graphics.ThemeManager;
 import com.android.launcher3.logger.LauncherAtom.FromState;
@@ -250,7 +251,7 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
     @Thunk
     int mTargetRank, mPrevTargetRank, mEmptyCellRank;
 
-    private Path mClipPath;
+    private PathWrapper mClipPath;
 
     @ViewDebug.ExportedProperty(category = "launcher",
             mapping = {
@@ -1054,9 +1055,7 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
 
     @Override
     protected void handleClose(boolean animate) {
-        mIsOpen = false;
         mContent.setCanAnnouncePageDescriptionForFolder(false);
-
         if (!animate && mCurrentAnimator != null && mCurrentAnimator.isRunning()) {
             mCurrentAnimator.cancel();
         }
@@ -1090,6 +1089,7 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
 
     private void animateClosed() {
         if (mIsAnimatingClosed) {
+            cancelRunningAnimations();
             return;
         }
 
@@ -1146,6 +1146,8 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
     }
 
     private void closeComplete(boolean wasAnimated) {
+        mIsOpen = false;
+
         // TODO: Clear all active animations.
         BaseDragLayer parent = (BaseDragLayer) getParent();
         if (parent != null) {
@@ -1187,6 +1189,11 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
         clearDragInfo();
         setState(STATE_CLOSED);
         mContent.setCurrentPage(0);
+
+        if (Flags.enableExpressiveFolderExpansion()) {
+            FolderAnimationSpringBuilderManager.resetLauncherScale(mLauncherDelegate);
+            FolderAnimationSpringBuilderManager.resetScrimAndZoom(mLauncherDelegate);
+        }
 
         // Expressive folder animations dim the workspace scrim and scale workspace/hotseat. When the
         // folder is dismissed without running the close animation (e.g. launching an app), those
@@ -2130,7 +2137,7 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
      * rounded rect.
      */
     @Override
-    public void setClipPath(Path clipPath) {
+    public void setClipPath(PathWrapper clipPath) {
         mClipPath = clipPath;
         invalidate();
     }
@@ -2138,11 +2145,19 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
     @Override
     protected void dispatchDraw(Canvas canvas) {
         if (mClipPath != null) {
+            // clipPath is non-null while clip reveal animation is playing
             int count = canvas.save();
-            canvas.clipPath(mClipPath);
+            canvas.clipPath(mClipPath.getPath());
             mBackground.draw(canvas);
+            if (!mIsAnimatingClosed) {
+                // If animating open, clip the content to the clip path to keep in bounds.
+                super.dispatchDraw(canvas);
+            }
             canvas.restoreToCount(count);
-            super.dispatchDraw(canvas);
+            if (mIsAnimatingClosed) {
+                // If animating closed, avoid clipping content as preview items protrude past clip.
+                super.dispatchDraw(canvas);
+            }
         } else {
             mBackground.draw(canvas);
             super.dispatchDraw(canvas);
