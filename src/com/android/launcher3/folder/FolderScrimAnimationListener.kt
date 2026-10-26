@@ -64,7 +64,6 @@ class FolderScrimAnimationListener(
                 it.alpha = 0f
             }
         }
-        launcher.findViewById<android.view.View>(com.android.launcher3.R.id.wallpaper_blur_view)?.alpha = 0f
         if (Utilities.ATLEAST_S) {
             (launcher as? com.android.launcher3.uioverrides.QuickstepLauncher)?.depthController?.folderDepth?.setValue(0f)
             if (launcher.stateManager.state.getDepth(launcher) == 0f) {

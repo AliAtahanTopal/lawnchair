@@ -403,22 +403,6 @@ class FolderSpringAnimatorSet(val animatorSet: AnimatorSet) {
                 val blurEffect = RenderEffect.createBlurEffect(blurPx, blurPx, Shader.TileMode.DECAL)
                 launcher.depthBlurTargets.forEach { it.setRenderEffect(blurEffect) }
             }
-            val wallpaperBlurView = launcher.findViewById<View>(R.id.wallpaper_blur_view)
-            if (wallpaperBlurView != null && homeFolderBlur > 0f) {
-                playSpringAnimation(
-                    context = context,
-                    animatorSet = animatorSet,
-                    isOpening = isOpening,
-                    startDelay = 0,
-                    stiffness = STIFFNESS_LAUNCHER_SCRIM,
-                    damping = DAMPING_LAUNCHER_SCRIM,
-                    startValue = 0f,
-                    endValue = 1f,
-                    minVisibleChange = MIN_VISIBLE_CHANGE_ALPHA,
-                    property = LauncherAnimUtils.VIEW_ALPHA,
-                    view = wallpaperBlurView,
-                )
-            }
             animatorSet.addListener(FolderScrimAnimationListener(scrimView, isOpening, launcher))
         }
 

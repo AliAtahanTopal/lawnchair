@@ -1236,10 +1236,6 @@ public class Folder extends AbstractFloatingView implements ClipPathView, DragSo
             if (appsView != null) {
                 appsView.setRenderEffect(null);
             }
-            View wallpaperBlur = launcher.findViewById(R.id.wallpaper_blur_view);
-            if (wallpaperBlur != null) {
-                wallpaperBlur.setAlpha(0f);
-            }
         }
     }
 

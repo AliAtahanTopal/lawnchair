@@ -274,23 +274,6 @@ public class BaseDepthController {
             blurWorkspaceDepthTargets();
         }
 
-        if (mLauncher != null) {
-            View wallpaperBlur = mLauncher.findViewById(com.android.launcher3.R.id.wallpaper_blur_view);
-            if (wallpaperBlur != null && !isFolder) {
-                float appDrawerBlur = 0f;
-                try {
-                    PreferenceManager2 p2 = PreferenceManager2.getInstance(mLauncher);
-                    appDrawerBlur = PreferenceCacheExtensionsKt.firstCached(p2.getAppDrawerBlur());
-                } catch (Throwable ignored) {
-                }
-                if (appDrawerBlur > 0f) {
-                    wallpaperBlur.setAlpha(Math.min(1f, depth * appDrawerBlur));
-                } else if (depth <= 0f) {
-                    wallpaperBlur.setAlpha(0f);
-                }
-            }
-        }
-
         if (!BlurUtils.supportsBlursOnWindows() || !mCrossWindowBlursEnabled) {
             return;
         }
