@@ -192,12 +192,18 @@ fun getFolderBackgroundAlpha(context: Context): Int {
  */
 fun getCustomFolderColor(context: Context): Int? {
     val prefs2 = PreferenceManager2.getInstance(context)
-    val colorOption = prefs2.folderColor.firstCached()
-    return if (colorOption !is ColorOption.Default) {
-        colorOption.colorPreferenceEntry.lightColor(context)
-    } else {
-        null
-    }
+    val option = prefs2.folderColor.firstCached()
+    if (option is ColorOption.Default) return null
+    if (option is ColorOption.Transparent) return Color.TRANSPARENT
+    val entry = option.colorPreferenceEntry
+    // lightColor is the sentinel for "use the theme default" (0). darkColor is always non-zero
+    // (it falls back to lightenColor()), so the default check must be made on lightColor first.
+    val lightColor = entry.lightColor(context)
+    if (lightColor == 0) return null
+    // A colour the user picked by hand is used exactly as picked. Only the dynamic sources
+    // (system accent, wallpaper) carry a meaningful separate dark variant.
+    if (option is ColorOption.CustomColor) return lightColor
+    return if (Utilities.isDarkTheme(context)) entry.darkColor(context) else lightColor
 }
 
 /** Closed-folder preview circle color (includes preview opacity). */

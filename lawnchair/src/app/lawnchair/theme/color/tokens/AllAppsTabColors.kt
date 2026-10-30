@@ -12,19 +12,32 @@ import dev.kdrag0n.monet.theme.ColorScheme
 /** Shared colors for Personal/Work tabs in the app drawer. */
 object AllAppsTabColors {
 
+    /**
+     * Returns the selected tab's background for [uiColorMode].
+     *
+     * Preserves manually selected colors, uses the matching light or dark variant for dynamic
+     * colors, and falls back to the theme token when no custom color is configured.
+     */
     fun selectedBackground(
         context: Context,
         scheme: ColorScheme,
         uiColorMode: UiColorMode,
     ): Int {
         val prefs2 = PreferenceManager2.getInstance(context)
-        val colorOption = prefs2.workProfileTabBackgroundColor.firstCached()
-        if (colorOption is ColorOption.Transparent) {
+        val option = prefs2.workProfileTabBackgroundColor.firstCached()
+        if (option is ColorOption.Transparent) {
             return Color.TRANSPARENT
         }
-        val customColor = colorOption.colorPreferenceEntry.lightColor.invoke(context)
-        return if (colorOption !is ColorOption.Default && customColor != 0) {
-            customColor
+        val entry = option.colorPreferenceEntry
+        // lightColor is the sentinel for "no custom colour" (0); darkColor is always non-zero
+        // because it falls back to lightenColor(), so the default check must use lightColor.
+        val customColor = entry.lightColor.invoke(context)
+        return if (option !is ColorOption.Default && customColor != 0) {
+            if (option is ColorOption.CustomColor || !uiColorMode.isDarkTheme) {
+                customColor
+            } else {
+                entry.darkColor.invoke(context)
+            }
         } else {
             ColorTokens.AllAppsTabBackgroundSelected.resolveColor(context, scheme, uiColorMode)
         }

@@ -24,7 +24,9 @@ import app.lawnchair.gestures.config.GestureHandlerConfig
 import app.lawnchair.gestures.handlers.GestureHandler
 import app.lawnchair.gestures.handlers.NoOpGestureHandler
 import app.lawnchair.preferences2.PreferenceManager2
+import com.android.launcher3.util.MSDLPlayerWrapper
 import com.android.launcher3.util.VibratorWrapper
+import com.google.android.msdl.data.model.MSDLToken
 import com.patrykmichalik.opto.domain.Preference
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -45,6 +47,7 @@ class GestureController(private val launcher: LawnchairLauncher) {
     private val twoFingerSwipeDownHandler = handler(prefs.twoFingerSwipeDownGestureHandler)
     private val homePressHandler = handler(prefs.homePressGestureHandler)
     private val backPressHandler = handler(prefs.backPressGestureHandler)
+    private val mMSDLPlayerWrapper = MSDLPlayerWrapper.INSTANCE.get(launcher)
 
     fun onDoubleTap() {
         triggerHandler(doubleTapHandler)
@@ -94,7 +97,7 @@ class GestureController(private val launcher: LawnchairLauncher) {
                 }
                 handler.onTrigger(launcher)
                 if (withHaptic) {
-                    VibratorWrapper.INSTANCE.get(launcher).vibrate(VibratorWrapper.OVERVIEW_HAPTIC)
+                    mMSDLPlayerWrapper.playToken(MSDLToken.SWIPE_THRESHOLD_INDICATOR)
                 }
             } catch (e: Exception) {
                 Log.e("GestureController", "Error triggering handler flow", e)
