@@ -48,7 +48,12 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
 
     private val mIconBounds: Rect = Rect()
     private val mPicture = Picture()
+    private var mPictureRecorded = false
     private val mRemoveViewRunnable = Runnable { this.removeViewFromParent() }
+    private val mTimeoutRunnable = Runnable {
+        close(false)
+        removeViewImmediate()
+    }
 
     private val mSurfaceView: SurfaceView = SurfaceView(context)
 
@@ -60,17 +65,41 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
 
         mSurfaceView.holder.setFormat(PixelFormat.TRANSLUCENT)
         mSurfaceView.holder.addCallback(this)
+        mSurfaceView.visibility = View.INVISIBLE
 
         mIsOpen = true
         addView(mSurfaceView)
     }
 
+    fun reset() {
+        removeCallbacks(mTimeoutRunnable)
+        setCurrentIconVisible(true)
+        mContract = null
+        mIcon = null
+        mIsOpen = false
+        mPictureRecorded = false
+        mIconPosition.setEmpty()
+        mTmpPosition.setEmpty()
+        mIconBounds.setEmpty()
+        mSurfaceView.visibility = View.INVISIBLE
+        mPicture.beginRecording(1, 1)
+        mPicture.endRecording()
+    }
+
     override fun handleClose(animate: Boolean) {
+        removeCallbacks(mTimeoutRunnable)
+        mSurfaceView.visibility = View.INVISIBLE
         setCurrentIconVisible(true)
         mLauncher.viewCache.recycleView(R.layout.floating_surface_view, this)
         mContract = null
         mIcon = null
         mIsOpen = false
+        mPictureRecorded = false
+        mIconPosition.setEmpty()
+        mTmpPosition.setEmpty()
+        mIconBounds.setEmpty()
+        mPicture.beginRecording(1, 1)
+        mPicture.endRecording()
 
         // Remove after some time, to avoid flickering
         Executors.MAIN_EXECUTOR.handler.postDelayed(
@@ -80,6 +109,8 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
     }
 
     private fun removeViewFromParent() {
+        removeCallbacks(mTimeoutRunnable)
+        mSurfaceView.visibility = View.INVISIBLE
         mPicture.beginRecording(1, 1)
         mPicture.endRecording()
         mLauncher.dragLayer.removeViewInLayout(this)
@@ -88,6 +119,7 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
     private fun removeViewImmediate() {
         // Cancel any pending remove
         Executors.MAIN_EXECUTOR.handler.removeCallbacks(mRemoveViewRunnable)
+        removeCallbacks(mTimeoutRunnable)
         if (isAttachedToWindow) {
             removeViewFromParent()
         }
@@ -111,6 +143,7 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        removeCallbacks(mTimeoutRunnable)
         getViewTreeObserver().removeOnGlobalLayoutListener(this)
         setCurrentIconVisible(true)
     }
@@ -175,42 +208,77 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
 
     override fun setInsets(insets: Rect?) {}
 
+    private fun isValidIconPosition(pos: RectF, icon: View): Boolean {
+        if (!icon.isAttachedToWindow || !icon.isLaidOut || icon.width <= 0 || icon.height <= 0) {
+            return false
+        }
+        if (pos.isEmpty || pos.width() <= 0f || pos.height() <= 0f) {
+            return false
+        }
+        // Launcher app icons are never placed at (0, 0) due to insets/margins.
+        // A (0, 0) position indicates unmeasured or unpositioned ancestor view.
+        if (pos.left <= 0f && pos.top <= 0f) {
+            return false
+        }
+        return true
+    }
+
     private fun updateIconLocation() {
         val contract = mContract ?: return
 
         val icon = getIcon()
+        if (icon == null) {
+            // No matching icon on home screen, dismiss immediately to prevent floating artifacts
+            sendIconInfo()
+            post {
+                close(false)
+                removeViewImmediate()
+            }
+            return
+        }
 
         val iconChanged = mIcon !== icon
         if (iconChanged) {
             setCurrentIconVisible(true)
             mIcon = icon
+            mPictureRecorded = false
             setCurrentIconVisible(false)
         }
 
-        if (icon != null && icon.isAttachedToWindow) {
+        var positionValid = false
+        if (icon.isAttachedToWindow) {
             getLocationBoundsForView(mLauncher, icon, false, mTmpPosition, mIconBounds)
-            if (mTmpPosition != mIconPosition) {
-                mIconPosition.set(mTmpPosition)
+            if (isValidIconPosition(mTmpPosition, icon)) {
+                positionValid = true
+                if (mTmpPosition != mIconPosition) {
+                    mIconPosition.set(mTmpPosition)
 
-                val lp = mSurfaceView.layoutParams as LayoutParams
-                lp.width = mIconPosition.width().roundToInt()
-                lp.height = mIconPosition.height().roundToInt()
-                lp.leftMargin = mIconPosition.left.roundToInt()
-                lp.topMargin = mIconPosition.top.roundToInt()
-                mSurfaceView.requestLayout()
+                    val lp = mSurfaceView.layoutParams as LayoutParams
+                    lp.width = mIconPosition.width().roundToInt()
+                    lp.height = mIconPosition.height().roundToInt()
+                    lp.leftMargin = mIconPosition.left.roundToInt()
+                    lp.topMargin = mIconPosition.top.roundToInt()
+                    mSurfaceView.requestLayout()
+                }
+                mSurfaceView.visibility = View.VISIBLE
+            } else {
+                mSurfaceView.visibility = View.INVISIBLE
             }
         }
 
-        sendIconInfo()
+        if (positionValid) {
+            sendIconInfo()
 
-        if (mIcon != null && iconChanged && !mIconBounds.isEmpty) {
-            setCurrentIconVisible(true)
-            val c = mPicture.beginRecording(mIconBounds.width(), mIconBounds.height())
-            c.translate(-mIconBounds.left.toFloat(), -mIconBounds.top.toFloat())
-            mIcon!!.draw(c)
-            mPicture.endRecording()
-            setCurrentIconVisible(false)
-            drawOnSurface()
+            if (!mPictureRecorded && !mIconBounds.isEmpty && mIconBounds.width() > 0 && mIconBounds.height() > 0) {
+                setCurrentIconVisible(true)
+                val c = mPicture.beginRecording(mIconBounds.width(), mIconBounds.height())
+                c.translate(-mIconBounds.left.toFloat(), -mIconBounds.top.toFloat())
+                mIcon?.draw(c)
+                mPicture.endRecording()
+                mPictureRecorded = true
+                setCurrentIconVisible(false)
+                drawOnSurface()
+            }
         }
     }
 
@@ -252,6 +320,7 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
     }
 
     private fun drawOnSurface() {
+        if (mSurfaceView.visibility != View.VISIBLE || !mPictureRecorded) return
         val surfaceHolder = mSurfaceView.holder
         if (!surfaceHolder.surface.isValid) return
 
@@ -272,6 +341,8 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
     }
 
     companion object {
+        private const val TIMEOUT_MS = 1000L
+
         /**
          * Shows the surfaceView for the provided contract
          */
@@ -283,11 +354,15 @@ class LawnchairFloatingSurfaceView @JvmOverloads constructor(
                     launcher,
                     launcher.dragLayer,
                 )
+            view.reset()
             view.mContract = contract
             view.mIsOpen = true
 
             view.removeViewImmediate()
             launcher.dragLayer.addView(view)
+
+            view.removeCallbacks(view.mTimeoutRunnable)
+            view.postDelayed(view.mTimeoutRunnable, TIMEOUT_MS)
         }
     }
 }

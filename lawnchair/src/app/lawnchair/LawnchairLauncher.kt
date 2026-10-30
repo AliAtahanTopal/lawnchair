@@ -588,9 +588,22 @@ class LawnchairLauncher : QuickstepLauncher() {
         )
     }
 
+    override fun onEnterAnimationComplete() {
+        super.onEnterAnimationComplete()
+        AbstractFloatingView.closeOpenViews(this, false, AbstractFloatingView.TYPE_ICON_SURFACE)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        AbstractFloatingView.closeOpenViews(this, false, AbstractFloatingView.TYPE_ICON_SURFACE)
+    }
+
     override fun onStateSetEnd(state: LauncherState) {
         super.onStateSetEnd(state)
         refreshPredictionContainersFromModel()
+        if (state == LauncherState.NORMAL) {
+            AbstractFloatingView.closeOpenViews(this, false, AbstractFloatingView.TYPE_ICON_SURFACE)
+        }
     }
 
     override fun onDestroy() {
