@@ -331,7 +331,7 @@ class LawnchairLauncher : QuickstepLauncher() {
                 LawnchairShortcut.CUSTOMIZE_FOLDER,
                 LawnchairShortcut.EDIT_DRAWER_FOLDER,
             ),
-            if (LawnchairApp.isRecentsEnabled) Stream.of(LawnchairShortcut.PAUSE_APPS) else Stream.empty(),
+            Stream.of(LawnchairShortcut.PAUSE_APPS),
         ),
     )
 
