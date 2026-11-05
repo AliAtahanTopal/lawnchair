@@ -241,7 +241,13 @@ class LawnchairShortcut {
         private val launcher: LawnchairLauncher,
         private val folderInfo: FolderInfo,
         originalView: View,
-    ) : SystemShortcut<LawnchairLauncher>(R.drawable.ic_edit, R.string.action_customize, launcher, folderInfo, originalView) {
+    ) : SystemShortcut<LawnchairLauncher>(
+        R.drawable.ic_edit,
+        if (folderInfo.hasOption(FolderInfo.FLAG_COVER_MODE)) R.string.edit_folder else R.string.action_customize,
+        launcher,
+        folderInfo,
+        originalView,
+    ) {
 
         override fun onClick(v: View) {
             AbstractFloatingView.closeAllOpenViews(launcher)

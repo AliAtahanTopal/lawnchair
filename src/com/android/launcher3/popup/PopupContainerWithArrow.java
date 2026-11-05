@@ -188,7 +188,8 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
      */
     @Deprecated
     public static boolean canShow(View icon, ItemInfo item) {
-        return icon instanceof BubbleTextView && ShortcutUtil.supportsShortcuts(item);
+        return (icon instanceof BubbleTextView || icon instanceof com.android.launcher3.folder.FolderIcon)
+                && ShortcutUtil.supportsShortcuts(item);
     }
 
     /**
@@ -208,19 +209,43 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
             return null;
         }
 
+        boolean isCoverMode = icon instanceof com.android.launcher3.folder.FolderIcon fi
+                && fi.isCoverModeEnabled()
+                && fi.mInfo != null
+                && !fi.mInfo.getContents().isEmpty();
+        ItemInfo firstApp = isCoverMode ? ((com.android.launcher3.folder.FolderIcon) icon).mInfo.getContents().get(0) : null;
+        ItemInfo shortcutItem = isCoverMode ? firstApp : item;
+
         PopupContainerWithArrow<Launcher> container;
         PopupDataProvider popupDataProvider = launcher.getPopupDataProvider();
-        int deepShortcutCount = popupDataProvider.getShortcutCountForItem(item);
-        List<SystemShortcut> systemShortcuts = launcher.getSupportedShortcuts(item.container)
-                .map(s -> s.getShortcut(launcher, item, icon))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+        int deepShortcutCount = popupDataProvider.getShortcutCountForItem(shortcutItem);
+        List<SystemShortcut> systemShortcuts;
+        if (isCoverMode) {
+            systemShortcuts = new ArrayList<>(launcher.getSupportedShortcuts(shortcutItem.container)
+                    .map(s -> s.getShortcut(launcher, shortcutItem, icon))
+                    .filter(Objects::nonNull)
+                    .filter(s -> !(s instanceof SystemShortcut.RemoveApp))
+                    .collect(Collectors.toList()));
+
+            List<SystemShortcut> folderShortcuts = launcher.getSupportedShortcuts(item.container)
+                    .map(s -> s.getShortcut(launcher, item, icon))
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            systemShortcuts.addAll(folderShortcuts);
+        } else {
+            systemShortcuts = launcher.getSupportedShortcuts(item.container)
+                    .map(s -> s.getShortcut(launcher, item, icon))
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+        }
+
         if (deepShortcutCount == 0 && systemShortcuts.isEmpty()) {
             return null;
         }
         container = (PopupContainerWithArrow) launcher.getLayoutInflater().inflate(
                 R.layout.popup_container, launcher.getDragLayer(), false);
-        container.configureForLauncher(launcher, item);
+        container.configureForLauncher(launcher, shortcutItem);
 
         if (icon instanceof FloatingIconViewCompanion fivc) {
             fivc.setForceHideDot(true);
@@ -241,14 +266,14 @@ public class PopupContainerWithArrow<T extends Context & ActivityContext>
             }
 
             shouldHideSystemShortcuts = enableMovingContentIntoPrivateSpace
-                    && Objects.equals(item.getTargetPackage(), PRIVATE_SPACE_PACKAGE);
+                    && Objects.equals(shortcutItem.getTargetPackage(), PRIVATE_SPACE_PACKAGE);
         } else {
             shouldHideSystemShortcuts = false;
         }
 
-        container.populateAndShowRows(icon, deepShortcutCount,
+        container.populateAndShowRows(icon, shortcutItem, deepShortcutCount,
                 shouldHideSystemShortcuts ? Collections.emptyList() : systemShortcuts);
-        launcher.refreshAndBindWidgetsForPackageUser(PackageUserKey.fromItemInfo(item));
+        launcher.refreshAndBindWidgetsForPackageUser(PackageUserKey.fromItemInfo(shortcutItem));
         container.requestFocus();
         return container;
     }

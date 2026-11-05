@@ -221,10 +221,11 @@ public class LauncherAccessibilityDelegate extends BaseAccessibilityDelegate<Lau
             });
             return true;
         } else if (action == DEEP_SHORTCUTS) {
-            BubbleTextView btv = host instanceof BubbleTextView ? (BubbleTextView) host
+            View target = host instanceof BubbleTextView ? host
                     : (host instanceof BubbleTextHolder
-                            ? ((BubbleTextHolder) host).getBubbleText() : null);
-            return btv != null && PopupContainerWithArrow.showForIcon(btv) != null;
+                            ? ((BubbleTextHolder) host).getBubbleText()
+                            : (host instanceof com.android.launcher3.folder.FolderIcon ? host : null));
+            return target != null && PopupContainerWithArrow.showForIcon(target) != null;
         } else if (action == CLOSE) {
             if (host instanceof AppWidgetResizeFrame) {
                 AbstractFloatingView.closeOpenViews(mContext, /* animate= */ false,

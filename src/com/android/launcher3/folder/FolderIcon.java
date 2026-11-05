@@ -702,6 +702,7 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
         boolean hasCustomIcon = ensureCustomFolderIconLoaded();
         if (hasCustomIcon && mCustomFolderDrawable != null) {
             super.dispatchDraw(canvas);
+            if (!mBackgroundIsVisible) return;
             int iconSize = mActivity.getDeviceProfile().iconSizePx;
             int width = getWidth();
             int left = (width - iconSize) / 2;
@@ -711,6 +712,7 @@ public class FolderIcon extends FrameLayout implements FloatingIconViewCompanion
             drawDot(canvas);
         } else if (isCoverModeEnabled() && mInfo != null && !mInfo.getContents().isEmpty()) {
             super.dispatchDraw(canvas);
+            if (!mBackgroundIsVisible) return;
 
             // 1. Get the first app in the folder
             ItemInfo itemInfo = mInfo.getContents().get(0);
